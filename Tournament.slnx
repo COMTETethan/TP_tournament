@@ -1,4 +1,6 @@
 <Solution>
   <Project Path="Tournament.Domain/Tournament.Domain.csproj" />
   <Project Path="Tournament.UnitTests/Tournament.UnitTests.csproj" />
+  <Project Path="Tournament.Api/Tournament.Api.csproj" />
+  <Project Path="Tournament.Api.UnitTests/Tournament.Api.UnitTests.csproj" />
 </Solution>
