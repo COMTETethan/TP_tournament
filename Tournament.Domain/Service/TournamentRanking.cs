@@ -14,8 +14,12 @@ public class TournamentRanking
     /// </summary>
     public List<Player> GetRanking(List<Player> players)
     {
-        // TODO: implement ranking
-        throw new NotImplementedException();
+        if (players is null)
+            throw new ArgumentNullException(nameof(players));
+
+        return players
+            .OrderByDescending(p => _scoreCalculator.CalculateScore(p.Matches, p.IsDisqualified, p.PenaltyPoints))
+            .ToList();
     }
 
     /// <summary>
@@ -23,7 +27,11 @@ public class TournamentRanking
     /// </summary>
     public Player GetChampion(List<Player> players)
     {
-        // TODO: implement champion selection
-        throw new NotImplementedException();
+        if (players is null)
+            throw new ArgumentNullException(nameof(players));
+
+        return players
+            .OrderByDescending(p => _scoreCalculator.CalculateScore(p.Matches, p.IsDisqualified, p.PenaltyPoints))
+            .FirstOrDefault();
     }
 }
