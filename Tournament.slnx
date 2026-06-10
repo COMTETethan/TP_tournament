@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Tournament.Domain/Tournament.Domain.csproj" />
+  <Project Path="Tournament.UnitTests/Tournament.UnitTests.csproj" />
+</Solution>

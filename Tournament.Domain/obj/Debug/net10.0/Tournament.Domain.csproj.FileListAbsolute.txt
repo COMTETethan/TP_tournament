@@ -1,0 +1,12 @@
+/home/ethan/Documents/Ynov/Tests_Unitaires/testunitaire/TP_TOURNAMENT/Tournament.Domain/bin/Debug/net10.0/Tournament.Domain.deps.json
+/home/ethan/Documents/Ynov/Tests_Unitaires/testunitaire/TP_TOURNAMENT/Tournament.Domain/bin/Debug/net10.0/Tournament.Domain.dll
+/home/ethan/Documents/Ynov/Tests_Unitaires/testunitaire/TP_TOURNAMENT/Tournament.Domain/bin/Debug/net10.0/Tournament.Domain.pdb
+/home/ethan/Documents/Ynov/Tests_Unitaires/testunitaire/TP_TOURNAMENT/Tournament.Domain/obj/Debug/net10.0/Tournament.Domain.GeneratedMSBuildEditorConfig.editorconfig
+/home/ethan/Documents/Ynov/Tests_Unitaires/testunitaire/TP_TOURNAMENT/Tournament.Domain/obj/Debug/net10.0/Tournament.Domain.AssemblyInfoInputs.cache
+/home/ethan/Documents/Ynov/Tests_Unitaires/testunitaire/TP_TOURNAMENT/Tournament.Domain/obj/Debug/net10.0/Tournament.Domain.AssemblyInfo.cs
+/home/ethan/Documents/Ynov/Tests_Unitaires/testunitaire/TP_TOURNAMENT/Tournament.Domain/obj/Debug/net10.0/Tournament.Domain.csproj.CoreCompileInputs.cache
+/home/ethan/Documents/Ynov/Tests_Unitaires/testunitaire/TP_TOURNAMENT/Tournament.Domain/obj/Debug/net10.0/Tournament.Domain.sourcelink.json
+/home/ethan/Documents/Ynov/Tests_Unitaires/testunitaire/TP_TOURNAMENT/Tournament.Domain/obj/Debug/net10.0/Tournament.Domain.dll
+/home/ethan/Documents/Ynov/Tests_Unitaires/testunitaire/TP_TOURNAMENT/Tournament.Domain/obj/Debug/net10.0/refint/Tournament.Domain.dll
+/home/ethan/Documents/Ynov/Tests_Unitaires/testunitaire/TP_TOURNAMENT/Tournament.Domain/obj/Debug/net10.0/Tournament.Domain.pdb
+/home/ethan/Documents/Ynov/Tests_Unitaires/testunitaire/TP_TOURNAMENT/Tournament.Domain/obj/Debug/net10.0/ref/Tournament.Domain.dll

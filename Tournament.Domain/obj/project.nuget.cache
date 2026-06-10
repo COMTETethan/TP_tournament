@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "HoeMD9ApgSE=",
+  "success": true,
+  "projectFilePath": "/home/ethan/Documents/Ynov/Tests_Unitaires/testunitaire/TP_TOURNAMENT/Tournament.Domain/Tournament.Domain.csproj",
+  "expectedPackageFiles": [
+    "/home/ethan/.nuget/packages/microsoft.aspnetcore.app.ref/10.0.8/microsoft.aspnetcore.app.ref.10.0.8.nupkg.sha512"
+  ],
+  "logs": []
+}
