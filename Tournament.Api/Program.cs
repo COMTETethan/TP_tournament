@@ -46,24 +46,44 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
-// ── Services ─────────────────────────────────────────────────────────────────
-builder.Services.AddScoped<ITournamentService, TournamentService>();
-builder.Services.AddScoped<IPlayerService, PlayerService>();
-builder.Services.AddScoped<IDuelService, DuelService>();
-builder.Services.AddScoped<IScoreService, ScoreService>();
-builder.Services.AddScoped<IReplayService, ReplayService>();
-builder.Services.AddScoped<ISkinService, SkinService>();
-builder.Services.AddScoped<ISeasonService, SeasonService>();
-builder.Services.AddScoped<IBattlepassService, BattlepassService>();
-builder.Services.AddScoped<IObjectiveService, ObjectiveService>();
-builder.Services.AddScoped<ISeasonRewardService, SeasonRewardService>();
-builder.Services.AddScoped<IClassService, ClassService>();
-builder.Services.AddScoped<ICombatService, CombatService>();
-builder.Services.AddScoped<IDuelCombatService, DuelCombatService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
+// ── CORS (allow the React/Vite SPA + browser clients in dev) ──────────────────
+const string SpaCorsPolicy = "SpaCors";
+builder.Services.AddCors(options =>
+    options.AddPolicy(SpaCorsPolicy, policy =>
+        policy.WithOrigins(
+                "http://localhost:5173", "http://localhost:5174", "http://localhost:5175",
+                "http://localhost:5176", "http://localhost:5177", "http://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials()));
+
+// ── Services (Singleton: the in-memory stores must persist across requests) ───
+builder.Services.AddSingleton<ITournamentService, TournamentService>();
+builder.Services.AddSingleton<IPlayerService, PlayerService>();
+builder.Services.AddSingleton<IDuelService, DuelService>();
+builder.Services.AddSingleton<IScoreService, ScoreService>();
+builder.Services.AddSingleton<IReplayService, ReplayService>();
+builder.Services.AddSingleton<ISkinService, SkinService>();
+builder.Services.AddSingleton<ISeasonService, SeasonService>();
+builder.Services.AddSingleton<IBattlepassService, BattlepassService>();
+builder.Services.AddSingleton<IObjectiveService, ObjectiveService>();
+builder.Services.AddSingleton<ISeasonRewardService, SeasonRewardService>();
+builder.Services.AddSingleton<IClassService, ClassService>();
+builder.Services.AddSingleton<ICombatService, CombatService>();
+builder.Services.AddSingleton<IDuelCombatService, DuelCombatService>();
+builder.Services.AddSingleton<IAuthService, AuthService>();
 
 var app = builder.Build();
 
+// Don't force HTTPS in Development: the SPA talks to http://localhost:5000 and a
+// 307 redirect to a self-signed https port breaks browser fetch/XHR (and the SSR
+// loader fetches). Keep the redirect for non-dev environments.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+app.UseCors(SpaCorsPolicy);
 app.UseSwagger();
 app.UseSwaggerUI(options =>
 {
@@ -71,8 +91,6 @@ app.UseSwaggerUI(options =>
     options.RoutePrefix = "swagger";
 });
 
-if (!app.Environment.IsDevelopment())
-    app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

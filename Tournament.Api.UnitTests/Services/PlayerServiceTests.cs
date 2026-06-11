@@ -90,9 +90,8 @@ public class PlayerServiceTests
     {
         // Regression: players must be addable to any tournament that actually exists,
         // not just the hardcoded seed — the service validates against the tournament store.
-        var tournaments = new TournamentService();
-        var service     = new PlayerService(tournaments);
-        var created     = await tournaments.CreateTournamentAsync(new CreateTournamentRequest("Grand Tournoi"));
+        var service = new PlayerService();
+        var created = await new TournamentService().CreateTournamentAsync(new CreateTournamentRequest("Grand Tournoi"));
 
         var player = await service.AddPlayerAsync(created.Id, new CreatePlayerRequest("Newcomer"));
 

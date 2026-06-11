@@ -38,6 +38,13 @@ public class TournamentService : ITournamentService
         }
     }
 
+    /// <summary>True if a tournament with this id exists in the shared store.</summary>
+    public static bool Exists(int id)
+    {
+        lock (SharedStore)
+            return SharedStore.Any(t => t.Id == id);
+    }
+
     public Task<TournamentResponse> CreateTournamentAsync(CreateTournamentRequest request)
     {
         if (string.IsNullOrWhiteSpace(request.Name))

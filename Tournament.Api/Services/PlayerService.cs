@@ -9,15 +9,11 @@ namespace Tournament.Api.Services;
 
 public class PlayerService : IPlayerService
 {
-    private readonly ITournamentService _tournaments;
     private readonly List<PlayerEntity> _players;
     private int _nextId;
 
-    public PlayerService() : this(new TournamentService()) { }
-
-    public PlayerService(ITournamentService tournaments)
+    public PlayerService()
     {
-        _tournaments = tournaments;
         _players = new List<PlayerEntity>
         {
             new() { Id = 1, TournamentId = 1, Name = "Player One", IsDisqualified = false, PenaltyPoints = 0, ClassId = 1, Level = 1 },
@@ -26,10 +22,11 @@ public class PlayerService : IPlayerService
         _nextId = 3;
     }
 
-    public async Task<PlayerResponse> AddPlayerAsync(int tournamentId, CreatePlayerRequest request)
+    public Task<PlayerResponse> AddPlayerAsync(int tournamentId, CreatePlayerRequest request)
     {
-        // Validate against the real tournament store (throws TournamentNotFoundException if unknown).
-        await _tournaments.GetTournamentAsync(tournamentId);
+        // Validate against the real tournament store (created tournaments are accepted, not just #1).
+        if (!TournamentService.Exists(tournamentId))
+            throw new TournamentNotFoundException(tournamentId);
 
         if (request.Level < 1)
             throw new ArgumentException("Level must be at least 1.", nameof(request.Level));
@@ -48,7 +45,7 @@ public class PlayerService : IPlayerService
             Level = request.Level
         };
         _players.Add(entity);
-        return Map(entity);
+        return Task.FromResult(Map(entity));
     }
 
     public Task<PlayerResponse> GetPlayerAsync(int id)
@@ -59,12 +56,13 @@ public class PlayerService : IPlayerService
         return Task.FromResult(Map(found));
     }
 
-    public async Task<IEnumerable<PlayerResponse>> GetTournamentPlayersAsync(int tournamentId)
+    public Task<IEnumerable<PlayerResponse>> GetTournamentPlayersAsync(int tournamentId)
     {
-        // Validate against the real tournament store (throws TournamentNotFoundException if unknown).
-        await _tournaments.GetTournamentAsync(tournamentId);
+        if (!TournamentService.Exists(tournamentId))
+            throw new TournamentNotFoundException(tournamentId);
 
-        return _players.Where(p => p.TournamentId == tournamentId).Select(Map).ToList();
+        var results = _players.Where(p => p.TournamentId == tournamentId).Select(Map).ToList();
+        return Task.FromResult<IEnumerable<PlayerResponse>>(results);
     }
 
     public Task<PlayerResponse> DisqualifyPlayerAsync(int id)
