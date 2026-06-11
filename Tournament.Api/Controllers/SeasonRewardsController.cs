@@ -22,23 +22,40 @@ public class SeasonRewardsController : ControllerBase
     [ProducesResponseType(400)]
     [ProducesResponseType(404)]
     public async Task<IActionResult> CreateSeasonReward(int seasonId, [FromBody] CreateSeasonRewardRequest request)
-        => throw new NotImplementedException();
+    {
+        try
+        {
+            var created = await _service.CreateSeasonRewardAsync(seasonId, request);
+            return CreatedAtAction(nameof(GetSeasonRewards), new { seasonId }, created);
+        }
+        catch (SeasonNotFoundException ex) { return NotFound(ex.Message); }
+        catch (ArgumentException ex) { return BadRequest(ex.Message); }
+    }
 
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<SeasonRewardResponse>), 200)]
     [ProducesResponseType(404)]
     public async Task<IActionResult> GetSeasonRewards(int seasonId)
-        => throw new NotImplementedException();
+    {
+        try { return Ok(await _service.GetSeasonRewardsAsync(seasonId)); }
+        catch (SeasonNotFoundException ex) { return NotFound(ex.Message); }
+    }
 
     [HttpPost("distribute")]
     [ProducesResponseType(typeof(IEnumerable<PlayerSeasonRewardResponse>), 200)]
     [ProducesResponseType(404)]
     public async Task<IActionResult> DistributeRewards(int seasonId)
-        => throw new NotImplementedException();
+    {
+        try { return Ok(await _service.DistributeRewardsAsync(seasonId)); }
+        catch (SeasonNotFoundException ex) { return NotFound(ex.Message); }
+    }
 
     [HttpGet("players/{playerId:int}")]
     [ProducesResponseType(typeof(IEnumerable<PlayerSeasonRewardResponse>), 200)]
     [ProducesResponseType(404)]
     public async Task<IActionResult> GetPlayerSeasonRewards(int seasonId, int playerId)
-        => throw new NotImplementedException();
+    {
+        try { return Ok(await _service.GetPlayerSeasonRewardsAsync(seasonId, playerId)); }
+        catch (SeasonNotFoundException ex) { return NotFound(ex.Message); }
+    }
 }
