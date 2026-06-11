@@ -1,13 +1,29 @@
 using System.Reflection;
-using Microsoft.OpenApi;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
+using Npgsql;
 using Tournament.Api.Contracts;
+using Tournament.Api.Data;
 using Tournament.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ── Database ──────────────────────────────────────────────────────────────────
+var connectionString = builder.Configuration.GetConnectionString("Default")
+    ?? throw new InvalidOperationException("ConnectionStrings:Default not configured.");
+
+var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
+dataSourceBuilder.MapEnum<TournamentStatus>("tournament_status");
+dataSourceBuilder.MapEnum<DuelOutcome>("duel_outcome");
+var dataSource = dataSourceBuilder.Build();
+
+builder.Services.AddDbContext<TournamentDbContext>(options =>
+    options.UseNpgsql(dataSource));
+
+// ── Controllers & Swagger ─────────────────────────────────────────────────────
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -18,13 +34,12 @@ builder.Services.AddSwaggerGen(options =>
         Version     = "v1",
         Description = "API de gestion de tournois : joueurs, duels, scores, saisons, battlepass et récompenses."
     });
-
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     options.IncludeXmlComments(xmlPath);
 });
 
-// ── JWT Authentication ───────────────────────────────────────────────────────
+// ── JWT Authentication ────────────────────────────────────────────────────────
 var jwtSecret = builder.Configuration["Jwt:Secret"]
     ?? throw new InvalidOperationException("Jwt:Secret not configured.");
 
@@ -43,30 +58,24 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ClockSkew                = TimeSpan.Zero,
         };
     });
-
 builder.Services.AddAuthorization();
 
-// ── CORS (allow the React/Vite SPA + browser clients in dev) ──────────────────
+// ── CORS ──────────────────────────────────────────────────────────────────────
 const string SpaCorsPolicy = "SpaCors";
 builder.Services.AddCors(options =>
     options.AddPolicy(SpaCorsPolicy, policy =>
         policy.WithOrigins(
                 "http://localhost:5173", "http://localhost:5174", "http://localhost:5175",
                 "http://localhost:5176", "http://localhost:5177", "http://localhost:3000")
-    };
-
-builder.Services.AddCors(options =>
-    options.AddPolicy(SpaCorsPolicy, policy =>
-        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials()));
 
-// ── Services (Singleton: the in-memory stores must persist across requests) ───
-builder.Services.AddSingleton<ITournamentService, TournamentService>();
-builder.Services.AddSingleton<IPlayerService, PlayerService>();
-builder.Services.AddSingleton<IDuelService, DuelService>();
-builder.Services.AddSingleton<IScoreService, ScoreService>();
+// ── Services (DB-backed: Scoped; in-memory: Singleton) ────────────────────────
+builder.Services.AddScoped<ITournamentService, TournamentService>();
+builder.Services.AddScoped<IPlayerService, PlayerService>();
+builder.Services.AddScoped<IDuelService, DuelService>();
+builder.Services.AddScoped<IScoreService, ScoreService>();
 builder.Services.AddSingleton<IReplayService, ReplayService>();
 builder.Services.AddSingleton<ISkinService, SkinService>();
 builder.Services.AddSingleton<ISeasonService, SeasonService>();
@@ -75,17 +84,12 @@ builder.Services.AddSingleton<IObjectiveService, ObjectiveService>();
 builder.Services.AddSingleton<ISeasonRewardService, SeasonRewardService>();
 builder.Services.AddSingleton<IClassService, ClassService>();
 builder.Services.AddSingleton<ICombatService, CombatService>();
-builder.Services.AddSingleton<IAuthService, AuthService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 var app = builder.Build();
 
-// Don't force HTTPS in Development: the SPA talks to http://localhost:5000 and a
-// 307 redirect to a self-signed https port breaks browser fetch/XHR (and the SSR
-// loader fetches). Keep the redirect for non-dev environments.
 if (!app.Environment.IsDevelopment())
-{
     app.UseHttpsRedirection();
-}
 
 app.UseCors(SpaCorsPolicy);
 app.UseSwagger();

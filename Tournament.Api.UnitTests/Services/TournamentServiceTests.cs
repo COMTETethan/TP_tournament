@@ -1,5 +1,6 @@
+using Microsoft.EntityFrameworkCore;
+using Tournament.Api.Data;
 using Tournament.Api.DTOs.Requests;
-using Tournament.Api.DTOs.Responses;
 using Tournament.Api.Exceptions;
 using Tournament.Api.Services;
 
@@ -7,20 +8,25 @@ namespace Tournament.Api.UnitTests.Services;
 
 public class TournamentServiceTests
 {
-    private readonly TournamentService _service = new();
+    private static TournamentDbContext CreateDb() => new(
+        new DbContextOptionsBuilder<TournamentDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options);
+
+    private readonly TournamentDbContext _db      = CreateDb();
+    private readonly TournamentService   _service;
+
+    public TournamentServiceTests() => _service = new TournamentService(_db);
 
     // ── CreateTournamentAsync ──────────────────────────────────
 
     [Fact]
     public async Task CreateTournamentAsync_ValidName_ReturnsTournamentWithOpenStatus()
     {
-        // Arrange
         var request = new CreateTournamentRequest("Grand Tournament");
 
-        // Act
         var result = await _service.CreateTournamentAsync(request);
 
-        // Assert
         result.Should().NotBeNull();
         result.Name.Should().Be("Grand Tournament");
         result.Status.Should().Be("OPEN");
@@ -30,15 +36,11 @@ public class TournamentServiceTests
     [Fact]
     public async Task CreateTournamentAsync_EmptyName_ThrowsArgumentException()
     {
-        // Arrange
         var request = new CreateTournamentRequest("");
 
-        // Act
         Func<Task> act = () => _service.CreateTournamentAsync(request);
 
-        // Assert
-        await act.Should().ThrowAsync<ArgumentException>()
-                 .WithMessage("*Name*");
+        await act.Should().ThrowAsync<ArgumentException>().WithMessage("*Name*");
     }
 
     // ── GetTournamentAsync ─────────────────────────────────────
@@ -46,14 +48,10 @@ public class TournamentServiceTests
     [Fact]
     public async Task GetTournamentAsync_ExistingId_ReturnsTournamentResponse()
     {
-        // Arrange — create first, then retrieve
         var created = await _service.CreateTournamentAsync(new CreateTournamentRequest("Test"));
 
-        // Act
         var result = await _service.GetTournamentAsync(created.Id);
 
-        // Assert
-        result.Should().NotBeNull();
         result.Id.Should().Be(created.Id);
         result.Name.Should().Be("Test");
     }
@@ -61,15 +59,10 @@ public class TournamentServiceTests
     [Fact]
     public async Task GetTournamentAsync_NonExistingId_ThrowsTournamentNotFoundException()
     {
-        // Arrange
-        const int nonExistingId = 9999;
+        Func<Task> act = () => _service.GetTournamentAsync(9999);
 
-        // Act
-        Func<Task> act = () => _service.GetTournamentAsync(nonExistingId);
-
-        // Assert
         await act.Should().ThrowAsync<TournamentNotFoundException>()
-                 .Where(e => e.TournamentId == nonExistingId);
+                 .Where(e => e.TournamentId == 9999);
     }
 
     // ── GetAllTournamentsAsync ─────────────────────────────────
@@ -77,14 +70,11 @@ public class TournamentServiceTests
     [Fact]
     public async Task GetAllTournamentsAsync_AfterCreatingTwo_ReturnsBothTournaments()
     {
-        // Arrange
         await _service.CreateTournamentAsync(new CreateTournamentRequest("A"));
         await _service.CreateTournamentAsync(new CreateTournamentRequest("B"));
 
-        // Act
         var result = await _service.GetAllTournamentsAsync();
 
-        // Assert
         result.Should().HaveCountGreaterThanOrEqualTo(2);
     }
 
@@ -93,14 +83,10 @@ public class TournamentServiceTests
     [Fact]
     public async Task UpdateTournamentStatusAsync_ValidStatus_UpdatesAndReturnsNewStatus()
     {
-        // Arrange
         var created = await _service.CreateTournamentAsync(new CreateTournamentRequest("Test"));
-        var request = new UpdateTournamentStatusRequest("IN_PROGRESS");
 
-        // Act
-        var result = await _service.UpdateTournamentStatusAsync(created.Id, request);
+        var result = await _service.UpdateTournamentStatusAsync(created.Id, new UpdateTournamentStatusRequest("IN_PROGRESS"));
 
-        // Assert
         result.Status.Should().Be("IN_PROGRESS");
         result.Id.Should().Be(created.Id);
     }
@@ -122,10 +108,8 @@ public class TournamentServiceTests
     [Fact]
     public async Task UpdateTournamentStatusAsync_NonExistingTournament_ThrowsTournamentNotFoundException()
     {
-        // Act
         Func<Task> act = () => _service.UpdateTournamentStatusAsync(9999, new UpdateTournamentStatusRequest("IN_PROGRESS"));
 
-        // Assert
         await act.Should().ThrowAsync<TournamentNotFoundException>()
                  .Where(e => e.TournamentId == 9999);
     }
