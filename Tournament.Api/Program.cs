@@ -9,6 +9,8 @@ builder.Services.AddScoped<ITournamentService, TournamentService>();
 builder.Services.AddScoped<IPlayerService, PlayerService>();
 builder.Services.AddScoped<IDuelService, DuelService>();
 builder.Services.AddScoped<IScoreService, ScoreService>();
+builder.Services.AddScoped<IReplayService, ReplayService>();
+builder.Services.AddScoped<ISkinService, SkinService>();
 
 var app = builder.Build();
 
