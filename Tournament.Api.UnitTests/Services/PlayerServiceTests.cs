@@ -44,6 +44,47 @@ public class PlayerServiceTests
                  .Where(e => e.TournamentId == nonExistingTournamentId);
     }
 
+    [Fact]
+    public async Task AddPlayerAsync_WithClassAndLevel_StoresChampionAttributes()
+    {
+        var request = new CreatePlayerRequest("Sir Galahad", ClassId: 1, Level: 4);
+
+        var result = await _service.AddPlayerAsync(1, request);
+
+        result.ClassId.Should().Be(1);
+        result.Level.Should().Be(4);
+    }
+
+    [Fact]
+    public async Task AddPlayerAsync_NoClass_DefaultsToNoClassAndLevelOne()
+    {
+        var result = await _service.AddPlayerAsync(1, new CreatePlayerRequest("Squire"));
+
+        result.ClassId.Should().BeNull();
+        result.Level.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task AddPlayerAsync_UnknownClass_ThrowsClassNotFoundException()
+    {
+        var request = new CreatePlayerRequest("Sir Galahad", ClassId: 999, Level: 1);
+
+        Func<Task> act = () => _service.AddPlayerAsync(1, request);
+
+        await act.Should().ThrowAsync<ClassNotFoundException>()
+                 .Where(e => e.ClassId == 999);
+    }
+
+    [Fact]
+    public async Task AddPlayerAsync_LevelBelowOne_ThrowsArgumentException()
+    {
+        var request = new CreatePlayerRequest("Sir Galahad", ClassId: 1, Level: 0);
+
+        Func<Task> act = () => _service.AddPlayerAsync(1, request);
+
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
     // ── GetPlayerAsync ─────────────────────────────────────────
 
     [Fact]

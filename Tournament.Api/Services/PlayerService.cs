@@ -17,8 +17,8 @@ public class PlayerService : IPlayerService
     {
         _players = new List<PlayerEntity>
         {
-            new() { Id = 1, TournamentId = 1, Name = "Player One", IsDisqualified = false, PenaltyPoints = 0 },
-            new() { Id = 2, TournamentId = 1, Name = "Player Two", IsDisqualified = true,  PenaltyPoints = 0 }
+            new() { Id = 1, TournamentId = 1, Name = "Player One", IsDisqualified = false, PenaltyPoints = 0, ClassId = 1, Level = 1 },
+            new() { Id = 2, TournamentId = 1, Name = "Player Two", IsDisqualified = true,  PenaltyPoints = 0, ClassId = 2, Level = 1 }
         };
         _nextId = 3;
     }
@@ -28,13 +28,21 @@ public class PlayerService : IPlayerService
         if (!ExistingTournaments.Contains(tournamentId))
             throw new TournamentNotFoundException(tournamentId);
 
+        if (request.Level < 1)
+            throw new ArgumentException("Level must be at least 1.", nameof(request.Level));
+
+        if (request.ClassId is int classId && !ClassCatalog.ClassExists(classId))
+            throw new ClassNotFoundException(classId);
+
         var entity = new PlayerEntity
         {
             Id = _nextId++,
             TournamentId = tournamentId,
             Name = request.Name,
             IsDisqualified = false,
-            PenaltyPoints = 0
+            PenaltyPoints = 0,
+            ClassId = request.ClassId,
+            Level = request.Level
         };
         _players.Add(entity);
         return Task.FromResult(Map(entity));
@@ -78,7 +86,7 @@ public class PlayerService : IPlayerService
     }
 
     private static PlayerResponse Map(PlayerEntity e)
-        => new(e.Id, e.TournamentId, e.Name, e.IsDisqualified, e.PenaltyPoints);
+        => new(e.Id, e.TournamentId, e.Name, e.IsDisqualified, e.PenaltyPoints, e.ClassId, e.Level);
 
     private class PlayerEntity
     {
@@ -87,5 +95,7 @@ public class PlayerService : IPlayerService
         public string Name { get; set; } = string.Empty;
         public bool IsDisqualified { get; set; }
         public int PenaltyPoints { get; set; }
+        public int? ClassId { get; set; }
+        public int Level { get; set; } = 1;
     }
 }
