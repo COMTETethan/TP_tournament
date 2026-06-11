@@ -143,4 +143,93 @@ public class DuelsControllerTests
         result.Should().BeOfType<BadRequestObjectResult>()
               .Which.StatusCode.Should().Be(400);
     }
+
+    [Fact]
+    public async Task CreateDuel_TournamentNotFound_ReturnsNotFound()
+    {
+        // Arrange
+        var request = new CreateDuelRequest(Player1Id: 1, Player2Id: 2, DuelOrder: 1);
+        _mockService.Setup(s => s.CreateDuelAsync(99, request))
+                    .ThrowsAsync(new TournamentNotFoundException(99));
+
+        // Act
+        var result = await _controller.CreateDuel(99, request);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task CreateDuel_SamePlayerBothSides_ReturnsBadRequest()
+    {
+        // Arrange
+        var request = new CreateDuelRequest(Player1Id: 1, Player2Id: 1, DuelOrder: 1);
+        _mockService.Setup(s => s.CreateDuelAsync(1, request))
+                    .ThrowsAsync(new ArgumentException("same player"));
+
+        // Act
+        var result = await _controller.CreateDuel(1, request);
+
+        // Assert
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetTournamentDuels_NonExistingTournament_ReturnsNotFound()
+    {
+        // Arrange
+        _mockService.Setup(s => s.GetTournamentDuelsAsync(99))
+                    .ThrowsAsync(new TournamentNotFoundException(99));
+
+        // Act
+        var result = await _controller.GetTournamentDuels(99);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task SetDuelOutcome_NonExistingDuel_ReturnsNotFound()
+    {
+        // Arrange
+        var request = new SetDuelOutcomeRequest("PLAYER1_WIN");
+        _mockService.Setup(s => s.SetDuelOutcomeAsync(99, request))
+                    .ThrowsAsync(new DuelNotFoundException(99));
+
+        // Act
+        var result = await _controller.SetDuelOutcome(99, request);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task SetDuelOutcome_InvalidOutcome_ReturnsBadRequest()
+    {
+        // Arrange
+        var request = new SetDuelOutcomeRequest("BANANA");
+        _mockService.Setup(s => s.SetDuelOutcomeAsync(1, request))
+                    .ThrowsAsync(new ArgumentException("Invalid duel outcome."));
+
+        // Act
+        var result = await _controller.SetDuelOutcome(1, request);
+
+        // Assert
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task EndDuel_NonExistingDuel_ReturnsNotFound()
+    {
+        // Arrange
+        var request = new EndDuelRequest(DurationSeconds: 120);
+        _mockService.Setup(s => s.EndDuelAsync(99, request))
+                    .ThrowsAsync(new DuelNotFoundException(99));
+
+        // Act
+        var result = await _controller.EndDuel(99, request);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
 }

@@ -119,4 +119,15 @@ public class TournamentServiceTests
         await act.Should().ThrowAsync<InvalidTournamentStatusException>()
                  .Where(e => e.AttemptedStatus == "BANANA");
     }
+
+    [Fact]
+    public async Task UpdateTournamentStatusAsync_NonExistingTournament_ThrowsTournamentNotFoundException()
+    {
+        // Act
+        Func<Task> act = () => _service.UpdateTournamentStatusAsync(9999, new UpdateTournamentStatusRequest("IN_PROGRESS"));
+
+        // Assert
+        await act.Should().ThrowAsync<TournamentNotFoundException>()
+                 .Where(e => e.TournamentId == 9999);
+    }
 }

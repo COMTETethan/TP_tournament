@@ -144,4 +144,77 @@ public class PlayersControllerTests
         ok.StatusCode.Should().Be(200);
         ok.Value.As<PlayerResponse>().PenaltyPoints.Should().Be(5);
     }
+
+    [Fact]
+    public async Task AddPlayer_InvalidName_ReturnsBadRequest()
+    {
+        // Arrange
+        var request = new CreatePlayerRequest("");
+        _mockService.Setup(s => s.AddPlayerAsync(1, request))
+                    .ThrowsAsync(new ArgumentException("Name cannot be empty."));
+
+        // Act
+        var result = await _controller.AddPlayer(1, request);
+
+        // Assert
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetTournamentPlayers_NonExistingTournament_ReturnsNotFound()
+    {
+        // Arrange
+        _mockService.Setup(s => s.GetTournamentPlayersAsync(99))
+                    .ThrowsAsync(new TournamentNotFoundException(99));
+
+        // Act
+        var result = await _controller.GetTournamentPlayers(99);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task DisqualifyPlayer_NonExistingPlayer_ReturnsNotFound()
+    {
+        // Arrange
+        _mockService.Setup(s => s.DisqualifyPlayerAsync(99))
+                    .ThrowsAsync(new PlayerNotFoundException(99));
+
+        // Act
+        var result = await _controller.DisqualifyPlayer(99);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task AddPenalty_NonExistingPlayer_ReturnsNotFound()
+    {
+        // Arrange
+        var request = new AddPenaltyRequest(5);
+        _mockService.Setup(s => s.AddPenaltyAsync(99, request))
+                    .ThrowsAsync(new PlayerNotFoundException(99));
+
+        // Act
+        var result = await _controller.AddPenalty(99, request);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task AddPenalty_InvalidPenaltyPoints_ReturnsBadRequest()
+    {
+        // Arrange
+        var request = new AddPenaltyRequest(-1);
+        _mockService.Setup(s => s.AddPenaltyAsync(1, request))
+                    .ThrowsAsync(new ArgumentException("Penalty must be positive."));
+
+        // Act
+        var result = await _controller.AddPenalty(1, request);
+
+        // Assert
+        result.Should().BeOfType<BadRequestObjectResult>();
+    }
 }

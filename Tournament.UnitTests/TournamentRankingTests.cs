@@ -143,4 +143,14 @@ public class TournamentRankingTests
         // Assert
         act.Should().Throw<InvalidOperationException>();
     }
+
+    [Fact]
+    public void MatchResult_DefaultConstructor_SetsDefaultOutcome()
+    {
+        // Act
+        var result = new MatchResult();
+
+        // Assert
+        result.Outcome.Should().Be(default(MatchResult.Result));
+    }
 }

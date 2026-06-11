@@ -28,6 +28,7 @@ public class DuelServiceTests
         result.Player2Id.Should().Be(2);
         result.Outcome.Should().BeNull("duel just created, no outcome yet");
         result.DurationSeconds.Should().BeNull("duel has not ended yet");
+        result.PlayedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
     }
 
     [Fact]

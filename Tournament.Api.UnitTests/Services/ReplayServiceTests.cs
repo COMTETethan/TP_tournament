@@ -22,9 +22,11 @@ public class ReplayServiceTests
 
         // Assert
         result.Should().NotBeNull();
+        result.Id.Should().BeGreaterThan(0);
         result.DuelId.Should().Be(duelId);
         result.IsComplete.Should().BeFalse("replay starts as incomplete");
         result.SchemaVersion.Should().Be(1);
+        result.RecordedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
     }
 
     [Fact]
@@ -123,6 +125,34 @@ public class ReplayServiceTests
         result.DuelId.Should().Be(duelId);
     }
 
+    // ── GetEventsAsync ─────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetEventsAsync_AfterAddingEvents_ReturnsEventsSortedByOrder()
+    {
+        // Arrange
+        const int duelId = 1;
+        await _service.StartReplayAsync(duelId);
+        await _service.AddEventAsync(duelId, new AddReplayEventRequest("DUEL_START", 0,    null, null, null));
+        await _service.AddEventAsync(duelId, new AddReplayEventRequest("ATTACK",     500,  1,    2,    null));
+        await _service.AddEventAsync(duelId, new AddReplayEventRequest("TOUCH",      1200, 1,    2,    "{\"damage\":3}"));
+
+        // Act
+        var events = (await _service.GetEventsAsync(duelId)).ToList();
+
+        // Assert
+        events.Should().HaveCountGreaterThanOrEqualTo(3);
+        events.Select(e => e.EventOrder).Should().BeInAscendingOrder();
+        var attack = events.First(e => e.EventType == "ATTACK");
+        attack.Id.Should().BeGreaterThan(0L);
+        attack.ReplayId.Should().BeGreaterThan(0);
+        attack.ActorPlayerId.Should().Be(1);
+        attack.TargetPlayerId.Should().Be(2);
+        attack.Payload.Should().BeNull();
+        var touch = events.First(e => e.EventType == "TOUCH");
+        touch.Payload.Should().Be("{\"damage\":3}");
+    }
+
     // ── GetCosmeticSnapshotAsync ───────────────────────────────────────────
 
     [Fact]
@@ -137,5 +167,22 @@ public class ReplayServiceTests
         // Assert
         result.Should().NotBeNull();
         result.DuelId.Should().Be(duelId);
+        result.Player1SkinName.Should().BeNull();
+        result.Player1AssetKey.Should().BeNull();
+        result.Player2SkinName.Should().BeNull();
+        result.Player2AssetKey.Should().BeNull();
+        result.BackgroundSkinName.Should().BeNull();
+        result.BackgroundAssetKey.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetCosmeticSnapshotAsync_UnknownDuel_ThrowsDuelNotFoundException()
+    {
+        // Act
+        Func<Task> act = () => _service.GetCosmeticSnapshotAsync(9999);
+
+        // Assert
+        await act.Should().ThrowAsync<DuelNotFoundException>()
+                 .Where(e => e.DuelId == 9999);
     }
 }

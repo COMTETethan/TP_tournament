@@ -91,4 +91,32 @@ public class ScoresControllerTests
         ok.StatusCode.Should().Be(200);
         ok.Value.As<PlayerScoreResponse>().PlayerName.Should().Be("Dame Morgane");
     }
+
+    [Fact]
+    public async Task GetTournamentRanking_NonExistingTournament_ReturnsNotFound()
+    {
+        // Arrange
+        _mockService.Setup(s => s.GetTournamentRankingAsync(99))
+                    .ThrowsAsync(new TournamentNotFoundException(99));
+
+        // Act
+        var result = await _controller.GetTournamentRanking(99);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetTournamentChampion_NonExistingTournament_ReturnsNotFound()
+    {
+        // Arrange
+        _mockService.Setup(s => s.GetTournamentChampionAsync(99))
+                    .ThrowsAsync(new TournamentNotFoundException(99));
+
+        // Act
+        var result = await _controller.GetTournamentChampion(99);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
 }

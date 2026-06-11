@@ -141,4 +141,19 @@ public class TournamentsControllerTests
         result.Should().BeOfType<BadRequestObjectResult>()
               .Which.StatusCode.Should().Be(400);
     }
+
+    [Fact]
+    public async Task UpdateTournamentStatus_NonExistingTournament_ReturnsNotFound()
+    {
+        // Arrange
+        var request = new UpdateTournamentStatusRequest("IN_PROGRESS");
+        _mockService.Setup(s => s.UpdateTournamentStatusAsync(99, request))
+                    .ThrowsAsync(new TournamentNotFoundException(99));
+
+        // Act
+        var result = await _controller.UpdateTournamentStatus(99, request);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
 }

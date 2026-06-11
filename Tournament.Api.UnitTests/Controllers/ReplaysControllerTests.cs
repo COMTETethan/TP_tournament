@@ -163,4 +163,61 @@ public class ReplaysControllerTests
         // Assert
         result.Should().BeOfType<OkObjectResult>().Which.StatusCode.Should().Be(200);
     }
+
+    [Fact]
+    public async Task AddEvent_ReplayNotFound_ReturnsNotFound()
+    {
+        // Arrange
+        var request = new AddReplayEventRequest("ATTACK", 500, 1, 2, null);
+        _mockService.Setup(s => s.AddEventAsync(99, request))
+                    .ThrowsAsync(new ReplayNotFoundException(99));
+
+        // Act
+        var result = await _controller.AddEvent(99, request);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetEvents_NonExistingDuel_ReturnsNotFound()
+    {
+        // Arrange
+        _mockService.Setup(s => s.GetEventsAsync(99))
+                    .ThrowsAsync(new ReplayNotFoundException(99));
+
+        // Act
+        var result = await _controller.GetEvents(99);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task CompleteReplay_NonExistingDuel_ReturnsNotFound()
+    {
+        // Arrange
+        _mockService.Setup(s => s.CompleteReplayAsync(99))
+                    .ThrowsAsync(new ReplayNotFoundException(99));
+
+        // Act
+        var result = await _controller.CompleteReplay(99);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
+
+    [Fact]
+    public async Task GetCosmeticSnapshot_NonExistingDuel_ReturnsNotFound()
+    {
+        // Arrange
+        _mockService.Setup(s => s.GetCosmeticSnapshotAsync(99))
+                    .ThrowsAsync(new DuelNotFoundException(99));
+
+        // Act
+        var result = await _controller.GetCosmeticSnapshot(99);
+
+        // Assert
+        result.Should().BeOfType<NotFoundObjectResult>();
+    }
 }

@@ -91,6 +91,17 @@ public class PlayerServiceTests
         result.Select(p => p.Name).Should().Contain("Sir Galahad").And.Contain("Dame Morgane");
     }
 
+    [Fact]
+    public async Task GetTournamentPlayersAsync_NonExistingTournament_ThrowsTournamentNotFoundException()
+    {
+        // Act
+        Func<Task> act = () => _service.GetTournamentPlayersAsync(9999);
+
+        // Assert
+        await act.Should().ThrowAsync<TournamentNotFoundException>()
+                 .Where(e => e.TournamentId == 9999);
+    }
+
     // ── DisqualifyPlayerAsync ──────────────────────────────────
 
     [Fact]

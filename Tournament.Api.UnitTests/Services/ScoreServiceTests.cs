@@ -1,4 +1,6 @@
-using Tournament.Api.DTOs.Requests;
+using FluentAssertions;
+using Moq;
+using Tournament.Api.Contracts;
 using Tournament.Api.DTOs.Responses;
 using Tournament.Api.Exceptions;
 using Tournament.Api.Services;
@@ -7,34 +9,64 @@ namespace Tournament.Api.UnitTests.Services;
 
 public class ScoreServiceTests
 {
-    private readonly ScoreService _service = new();
+    private readonly Mock<IPlayerService>     _players     = new();
+    private readonly Mock<IDuelService>       _duels       = new();
+    private readonly Mock<ITournamentService> _tournaments = new();
+    private readonly ScoreService             _service;
 
-    // ── GetPlayerScoreAsync ────────────────────────────────────
+    // Reusable fixture data
+    private static readonly DateTime Now = DateTime.UtcNow;
+    private static readonly TournamentResponse T1 = new(1, "Grand Prix", "ACTIVE", Now);
+    private static readonly PlayerResponse P1  = new(1, 1, "Arthur", IsDisqualified: false, PenaltyPoints: 0);
+    private static readonly PlayerResponse P2  = new(2, 1, "Morgane", IsDisqualified: true,  PenaltyPoints: 0);
+    private static readonly PlayerResponse P3  = new(3, 1, "Lancelot", IsDisqualified: false, PenaltyPoints: 0);
+
+    // Two wins for P1, two losses for P2 — 6 pts for P1, 0 for P2 (disqualified), 0 for P3 (no duels)
+    private static readonly List<DuelResponse> T1Duels = new()
+    {
+        new(1, 1, Player1Id: 1, Player2Id: 2, Outcome: "PLAYER1_WIN", DuelOrder: 1, PlayedAt: Now, DurationSeconds: 120),
+        new(2, 1, Player1Id: 1, Player2Id: 2, Outcome: "PLAYER1_WIN", DuelOrder: 2, PlayedAt: Now, DurationSeconds: 150),
+    };
+
+    public ScoreServiceTests()
+    {
+        _service = new ScoreService(_players.Object, _duels.Object, _tournaments.Object);
+    }
+
+    [Fact]
+    public void DefaultConstructor_CreatesInstanceWithInMemoryServices()
+    {
+        // Used by ASP.NET Core DI when resolving with concrete in-memory implementations
+        var service = new ScoreService();
+        service.Should().NotBeNull();
+    }
+
+    // ── GetPlayerScoreAsync ────────────────────────────────────────────────────
 
     [Fact]
     public async Task GetPlayerScoreAsync_HealthyPlayerWithWins_ReturnsCorrectScore()
     {
-        // Arrange — player 1 in tournament 1 has 3 consecutive wins (9 + 5 bonus = 14)
-        const int playerId = 1;
+        // Arrange
+        _players.Setup(s => s.GetPlayerAsync(1)).ReturnsAsync(P1);
+        _duels.Setup(s => s.GetTournamentDuelsAsync(1)).ReturnsAsync(T1Duels);
 
         // Act
-        var result = await _service.GetPlayerScoreAsync(playerId);
+        var result = await _service.GetPlayerScoreAsync(1);
 
         // Assert
-        result.Should().NotBeNull();
-        result.PlayerId.Should().Be(playerId);
-        result.FinalScore.Should().BeGreaterThanOrEqualTo(0, "score is never negative");
+        result.PlayerId.Should().Be(1);
+        result.FinalScore.Should().Be(6, "2 wins × 3 pts = 6");
         result.IsDisqualified.Should().BeFalse();
     }
 
     [Fact]
     public async Task GetPlayerScoreAsync_DisqualifiedPlayer_ReturnsFinalScoreOfZero()
     {
-        // Arrange — player 2 is disqualified
-        const int disqualifiedPlayerId = 2;
+        // Arrange
+        _players.Setup(s => s.GetPlayerAsync(2)).ReturnsAsync(P2);
 
         // Act
-        var result = await _service.GetPlayerScoreAsync(disqualifiedPlayerId);
+        var result = await _service.GetPlayerScoreAsync(2);
 
         // Assert
         result.FinalScore.Should().Be(0, "disqualified players always score 0");
@@ -45,81 +77,101 @@ public class ScoreServiceTests
     public async Task GetPlayerScoreAsync_NonExistingPlayer_ThrowsPlayerNotFoundException()
     {
         // Arrange
-        const int nonExistingId = 9999;
+        _players.Setup(s => s.GetPlayerAsync(9999)).ThrowsAsync(new PlayerNotFoundException(9999));
 
         // Act
-        Func<Task> act = () => _service.GetPlayerScoreAsync(nonExistingId);
+        Func<Task> act = () => _service.GetPlayerScoreAsync(9999);
 
         // Assert
         await act.Should().ThrowAsync<PlayerNotFoundException>()
-                 .Where(e => e.PlayerId == nonExistingId);
+                 .Where(e => e.PlayerId == 9999);
     }
 
-    // ── GetTournamentRankingAsync ──────────────────────────────
+    // ── GetTournamentRankingAsync ──────────────────────────────────────────────
 
     [Fact]
     public async Task GetTournamentRankingAsync_MultiplePlayers_ReturnsSortedByScoreDescending()
     {
         // Arrange
-        const int tournamentId = 1;
+        _tournaments.Setup(s => s.GetTournamentAsync(1)).ReturnsAsync(T1);
+        _players.Setup(s => s.GetTournamentPlayersAsync(1)).ReturnsAsync(new[] { P1, P2, P3 });
+        _players.Setup(s => s.GetPlayerAsync(1)).ReturnsAsync(P1);
+        _players.Setup(s => s.GetPlayerAsync(2)).ReturnsAsync(P2);
+        _players.Setup(s => s.GetPlayerAsync(3)).ReturnsAsync(P3);
+        _duels.Setup(s => s.GetTournamentDuelsAsync(1)).ReturnsAsync(T1Duels);
 
         // Act
-        var result = await _service.GetTournamentRankingAsync(tournamentId);
+        var result = await _service.GetTournamentRankingAsync(1);
 
         // Assert
-        result.Should().NotBeNull();
-        result.TournamentId.Should().Be(tournamentId);
-        result.Ranking.Should().NotBeNull();
-
-        // Scores must be in descending order
+        result.TournamentId.Should().Be(1);
+        result.Ranking.Should().HaveCount(3);
         var scores = result.Ranking.Select(p => p.FinalScore).ToList();
         scores.Should().BeInDescendingOrder("ranking must be sorted by score descending");
+        result.Ranking[0].PlayerId.Should().Be(1, "player 1 has the most points");
     }
 
     [Fact]
     public async Task GetTournamentRankingAsync_NonExistingTournament_ThrowsTournamentNotFoundException()
     {
         // Arrange
-        const int nonExistingId = 9999;
+        _tournaments.Setup(s => s.GetTournamentAsync(9999)).ThrowsAsync(new TournamentNotFoundException(9999));
 
         // Act
-        Func<Task> act = () => _service.GetTournamentRankingAsync(nonExistingId);
+        Func<Task> act = () => _service.GetTournamentRankingAsync(9999);
 
         // Assert
         await act.Should().ThrowAsync<TournamentNotFoundException>()
-                 .Where(e => e.TournamentId == nonExistingId);
+                 .Where(e => e.TournamentId == 9999);
     }
 
-    // ── GetTournamentChampionAsync ─────────────────────────────
+    // ── GetTournamentChampionAsync ─────────────────────────────────────────────
 
     [Fact]
     public async Task GetTournamentChampionAsync_MultiplePlayers_ReturnsPlayerWithHighestScore()
     {
         // Arrange
-        const int tournamentId = 1;
+        _tournaments.Setup(s => s.GetTournamentAsync(1)).ReturnsAsync(T1);
+        _players.Setup(s => s.GetTournamentPlayersAsync(1)).ReturnsAsync(new[] { P1, P2, P3 });
+        _players.Setup(s => s.GetPlayerAsync(1)).ReturnsAsync(P1);
+        _players.Setup(s => s.GetPlayerAsync(2)).ReturnsAsync(P2);
+        _players.Setup(s => s.GetPlayerAsync(3)).ReturnsAsync(P3);
+        _duels.Setup(s => s.GetTournamentDuelsAsync(1)).ReturnsAsync(T1Duels);
 
         // Act
-        var champion = await _service.GetTournamentChampionAsync(tournamentId);
+        var champion = await _service.GetTournamentChampionAsync(1);
 
         // Assert
         champion.Should().NotBeNull();
-
-        // Champion must have the highest score of all ranked players
-        var ranking = await _service.GetTournamentRankingAsync(tournamentId);
-        champion.FinalScore.Should().Be(ranking.Ranking.Max(p => p.FinalScore));
+        champion.PlayerId.Should().Be(1);
+        champion.FinalScore.Should().Be(6);
     }
 
     [Fact]
     public async Task GetTournamentChampionAsync_NonExistingTournament_ThrowsTournamentNotFoundException()
     {
         // Arrange
-        const int nonExistingId = 9999;
+        _tournaments.Setup(s => s.GetTournamentAsync(9999)).ThrowsAsync(new TournamentNotFoundException(9999));
 
         // Act
-        Func<Task> act = () => _service.GetTournamentChampionAsync(nonExistingId);
+        Func<Task> act = () => _service.GetTournamentChampionAsync(9999);
 
         // Assert
         await act.Should().ThrowAsync<TournamentNotFoundException>()
-                 .Where(e => e.TournamentId == nonExistingId);
+                 .Where(e => e.TournamentId == 9999);
+    }
+
+    [Fact]
+    public async Task GetTournamentChampionAsync_EmptyTournament_ThrowsInvalidOperationException()
+    {
+        // Arrange — tournament exists but has no players
+        _tournaments.Setup(s => s.GetTournamentAsync(1)).ReturnsAsync(T1);
+        _players.Setup(s => s.GetTournamentPlayersAsync(1)).ReturnsAsync(Array.Empty<PlayerResponse>());
+
+        // Act
+        Func<Task> act = () => _service.GetTournamentChampionAsync(1);
+
+        // Assert
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 }
