@@ -8,13 +8,10 @@
 -- =============================================================
 
 -- ── players become user-owned champions ───────────────────────
+-- user_id is the owning user's id. No hard FK to users: the auth store can run
+-- independently (in-memory) from the champion store, so the column just records
+-- the owner from the JWT without coupling the two stores.
 ALTER TABLE players ADD COLUMN IF NOT EXISTS user_id INT;
-
-DO $$ BEGIN
-    ALTER TABLE players
-        ADD CONSTRAINT fk_players_user
-        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- A champion always has a class.
 ALTER TABLE players ALTER COLUMN class_id SET NOT NULL;

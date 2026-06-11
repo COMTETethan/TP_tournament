@@ -3,8 +3,10 @@ using Microsoft.OpenApi;
 using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Npgsql;
 using Tournament.Api.Contracts;
 using Tournament.Api.Services;
+using Tournament.Api.Services.Db;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -57,21 +59,41 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod()
               .AllowCredentials()));
 
-// ── Services (Singleton: the in-memory stores must persist across requests) ───
-builder.Services.AddSingleton<ITournamentService, TournamentService>();
-builder.Services.AddSingleton<IPlayerService, PlayerService>();
-builder.Services.AddSingleton<ITournamentPlayerService, TournamentPlayerService>();
-builder.Services.AddSingleton<IDuelService, DuelService>();
+// ── Core persistence: PostgreSQL when ConnectionStrings:Default is set, else in-memory ──
+var connectionString = builder.Configuration.GetConnectionString("Default");
+if (!string.IsNullOrWhiteSpace(connectionString))
+{
+    Dapper.DefaultTypeMap.MatchNamesWithUnderscores = true; // snake_case columns → record params
+    builder.Services.AddSingleton(NpgsqlDataSource.Create(connectionString));
+    builder.Services.AddSingleton<ITournamentService, DbTournamentService>();
+    builder.Services.AddSingleton<IPlayerService, DbPlayerService>();
+    builder.Services.AddSingleton<ITournamentPlayerService, DbTournamentPlayerService>();
+    builder.Services.AddSingleton<IDuelService, DbDuelService>();
+    // The combat engine stays in-memory but is written through to the database.
+    builder.Services.AddSingleton<ICombatService>(sp =>
+        new DbCombatPersistenceDecorator(new CombatService(), sp.GetRequiredService<NpgsqlDataSource>()));
+}
+else
+{
+    builder.Services.AddSingleton<ITournamentService, TournamentService>();
+    builder.Services.AddSingleton<IPlayerService, PlayerService>();
+    builder.Services.AddSingleton<ITournamentPlayerService, TournamentPlayerService>();
+    builder.Services.AddSingleton<IDuelService, DuelService>();
+    builder.Services.AddSingleton<ICombatService, CombatService>();
+}
+
+// Computed over the stores above (DI picks the injecting constructor).
 builder.Services.AddSingleton<IScoreService, ScoreService>();
+builder.Services.AddSingleton<IDuelCombatService, DuelCombatService>();
+
+// Read-only catalog + modules that remain in-memory for now.
+builder.Services.AddSingleton<IClassService, ClassService>();
 builder.Services.AddSingleton<IReplayService, ReplayService>();
 builder.Services.AddSingleton<ISkinService, SkinService>();
 builder.Services.AddSingleton<ISeasonService, SeasonService>();
 builder.Services.AddSingleton<IBattlepassService, BattlepassService>();
 builder.Services.AddSingleton<IObjectiveService, ObjectiveService>();
 builder.Services.AddSingleton<ISeasonRewardService, SeasonRewardService>();
-builder.Services.AddSingleton<IClassService, ClassService>();
-builder.Services.AddSingleton<ICombatService, CombatService>();
-builder.Services.AddSingleton<IDuelCombatService, DuelCombatService>();
 builder.Services.AddSingleton<IAuthService, AuthService>();
 
 var app = builder.Build();

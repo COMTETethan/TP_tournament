@@ -12,7 +12,14 @@ services:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      # Migrations run in alphabetical order on first start.
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+      - ./postgres/02_phase2.sql:/docker-entrypoint-initdb.d/02_phase2.sql:ro
+      - ./postgres/03_auth.sql:/docker-entrypoint-initdb.d/03_auth.sql:ro
+      - ./postgres/03_phase3.sql:/docker-entrypoint-initdb.d/04_phase3.sql:ro
+      - ./postgres/04_combat.sql:/docker-entrypoint-initdb.d/05_combat.sql:ro
+      - ./postgres/05_player_champion.sql:/docker-entrypoint-initdb.d/06_player_champion.sql:ro
+      - ./postgres/06_user_champions.sql:/docker-entrypoint-initdb.d/07_user_champions.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
