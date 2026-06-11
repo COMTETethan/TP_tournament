@@ -30,6 +30,22 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+// ── CORS (allow the React/Vite front to call the API in dev) ──────────────────
+const string SpaCorsPolicy = "SpaCors";
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? new[]
+    {
+        "http://localhost:5173", "http://localhost:5174", "http://localhost:5175",
+        "http://localhost:5176", "http://localhost:3000",
+    };
+
+builder.Services.AddCors(options =>
+    options.AddPolicy(SpaCorsPolicy, policy =>
+        policy.WithOrigins(allowedOrigins)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials()));
+
 // ── Services ─────────────────────────────────────────────────────────────────
 builder.Services.AddScoped<ITournamentService, TournamentService>();
 builder.Services.AddScoped<IPlayerService, PlayerService>();
@@ -45,7 +61,15 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 
 var app = builder.Build();
 
-app.UseHttpsRedirection();
+// Don't force HTTPS in Development: the SPA talks to http://localhost:5000 and a
+// 307 redirect to a self-signed https port breaks browser fetch/XHR (and the SSR
+// loader fetches). Keep the redirect for non-dev environments.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
+app.UseCors(SpaCorsPolicy);
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
