@@ -39,8 +39,7 @@ public class BattlepassService : IBattlepassService
 
     public Task<BattlepassTierResponse> AddTierAsync(int battlepassId, AddBattlepassTierRequest request)
     {
-        if (!_battlepasses.Any(b => b.Id == battlepassId))
-            throw new BattlepassNotFoundException(battlepassId);
+        FindOrThrow(battlepassId);
 
         var tier = new TierEntity
         {
@@ -68,9 +67,7 @@ public class BattlepassService : IBattlepassService
 
     public Task<PlayerBattlepassProgressResponse> GetPlayerProgressAsync(int battlepassId, int playerId)
     {
-        if (!_battlepasses.Any(b => b.Id == battlepassId))
-            throw new BattlepassNotFoundException(battlepassId);
-
+        FindOrThrow(battlepassId);
         return Task.FromResult(MapProgress(GetOrCreateProgress(battlepassId, playerId)));
     }
 
@@ -79,8 +76,7 @@ public class BattlepassService : IBattlepassService
         if (request.XpAmount < 0)
             throw new ArgumentException("XP must be positive.", nameof(request.XpAmount));
 
-        if (!_battlepasses.Any(b => b.Id == battlepassId))
-            throw new BattlepassNotFoundException(battlepassId);
+        FindOrThrow(battlepassId);
 
         var prog = GetOrCreateProgress(battlepassId, playerId);
         prog.CurrentXp += request.XpAmount;
@@ -94,6 +90,9 @@ public class BattlepassService : IBattlepassService
 
         return Task.FromResult(MapProgress(prog));
     }
+
+    private BattlepassEntity FindOrThrow(int id)
+        => _battlepasses.FirstOrDefault(b => b.Id == id) ?? throw new BattlepassNotFoundException(id);
 
     private ProgressEntity GetOrCreateProgress(int battlepassId, int playerId)
     {
