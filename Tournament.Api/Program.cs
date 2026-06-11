@@ -60,6 +60,8 @@ builder.Services.AddScoped<ISeasonRewardService, SeasonRewardService>();
 builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<ICombatService, CombatService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IFriendService, FriendService>();
+builder.Services.AddScoped<IChallengeService, ChallengeService>();
 
 var app = builder.Build();
 
