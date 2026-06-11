@@ -9,7 +9,9 @@ public class ObjectiveService : IObjectiveService
 {
     private readonly List<ObjectiveEntity> _objectives = new();
     private readonly List<ProgressEntity> _progress = new();
+    private readonly List<CompletionEntity> _completions = new();
     private int _nextObjId = 1;
+    private int _nextCompletionId = 1;
 
     public Task<ObjectiveResponse> CreateObjectiveAsync(CreateObjectiveRequest request)
     {
@@ -42,37 +44,64 @@ public class ObjectiveService : IObjectiveService
     public Task<PlayerObjectiveProgressResponse> GetPlayerProgressAsync(int objectiveId, int playerId, string? periodKey = null)
     {
         FindOrThrow(objectiveId);
-        return Task.FromResult(MapProgress(GetOrCreateProgress(objectiveId, playerId)));
+        return Task.FromResult(MapProgress(GetOrCreateProgress(objectiveId, playerId, periodKey)));
     }
-
-    public Task<IEnumerable<PlayerObjectiveCompletionResponse>> GetPlayerCompletionsAsync(int objectiveId, int playerId)
-        => throw new NotImplementedException();
 
     public Task<PlayerObjectiveProgressResponse> UpdatePlayerProgressAsync(int objectiveId, int playerId, UpdateObjectiveProgressRequest request)
     {
         var obj = FindOrThrow(objectiveId);
+        var periodKey = request.PeriodKey;
 
-        var prog = GetOrCreateProgress(objectiveId, playerId);
+        var prog = GetOrCreateProgress(objectiveId, playerId, periodKey);
+
+        // Already completed this period — progress is frozen
+        if (prog.IsCompleted)
+            return Task.FromResult(MapProgress(prog));
+
         prog.CurrentValue = Math.Min(request.NewValue, obj.TargetValue);
 
-        if (prog.CurrentValue >= obj.TargetValue && !prog.IsCompleted)
+        if (prog.CurrentValue >= obj.TargetValue)
         {
             prog.IsCompleted = true;
             prog.CompletedAt = DateTime.UtcNow;
+
+            _completions.Add(new CompletionEntity
+            {
+                Id = _nextCompletionId++,
+                PlayerId = playerId,
+                ObjectiveId = objectiveId,
+                CompletedAt = prog.CompletedAt.Value,
+                XpAwarded = obj.XpReward,
+                PeriodKey = periodKey
+            });
         }
 
         return Task.FromResult(MapProgress(prog));
     }
 
+    public Task<IEnumerable<PlayerObjectiveCompletionResponse>> GetPlayerCompletionsAsync(int objectiveId, int playerId)
+    {
+        FindOrThrow(objectiveId);
+        return Task.FromResult<IEnumerable<PlayerObjectiveCompletionResponse>>(
+            _completions
+                .Where(c => c.ObjectiveId == objectiveId && c.PlayerId == playerId)
+                .Select(MapCompletion)
+                .ToList());
+    }
+
     private ObjectiveEntity FindOrThrow(int id)
         => _objectives.FirstOrDefault(o => o.Id == id) ?? throw new ObjectiveNotFoundException(id);
 
-    private ProgressEntity GetOrCreateProgress(int objectiveId, int playerId)
+    private ProgressEntity GetOrCreateProgress(int objectiveId, int playerId, string? periodKey)
     {
-        var existing = _progress.FirstOrDefault(p => p.ObjectiveId == objectiveId && p.PlayerId == playerId);
+        var existing = _progress.FirstOrDefault(p =>
+            p.ObjectiveId == objectiveId &&
+            p.PlayerId == playerId &&
+            p.PeriodKey == periodKey);
+
         if (existing is not null) return existing;
 
-        var prog = new ProgressEntity { ObjectiveId = objectiveId, PlayerId = playerId };
+        var prog = new ProgressEntity { ObjectiveId = objectiveId, PlayerId = playerId, PeriodKey = periodKey };
         _progress.Add(prog);
         return prog;
     }
@@ -81,7 +110,10 @@ public class ObjectiveService : IObjectiveService
         => new(e.Id, e.SeasonId, e.Name, e.Description, e.ObjectiveType, e.TargetValue, e.XpReward, e.ResetType);
 
     private static PlayerObjectiveProgressResponse MapProgress(ProgressEntity e)
-        => new(e.ObjectiveId, e.PlayerId, e.CurrentValue, e.IsCompleted, e.CompletedAt);
+        => new(e.ObjectiveId, e.PlayerId, e.CurrentValue, e.IsCompleted, e.CompletedAt, e.PeriodKey);
+
+    private static PlayerObjectiveCompletionResponse MapCompletion(CompletionEntity e)
+        => new(e.Id, e.PlayerId, e.ObjectiveId, e.CompletedAt, e.XpAwarded, e.PeriodKey);
 
     private class ObjectiveEntity
     {
@@ -99,8 +131,19 @@ public class ObjectiveService : IObjectiveService
     {
         public int ObjectiveId { get; set; }
         public int PlayerId { get; set; }
+        public string? PeriodKey { get; set; }
         public int CurrentValue { get; set; }
         public bool IsCompleted { get; set; }
         public DateTime? CompletedAt { get; set; }
+    }
+
+    private class CompletionEntity
+    {
+        public int Id { get; set; }
+        public int PlayerId { get; set; }
+        public int ObjectiveId { get; set; }
+        public DateTime CompletedAt { get; set; }
+        public int XpAwarded { get; set; }
+        public string? PeriodKey { get; set; }
     }
 }

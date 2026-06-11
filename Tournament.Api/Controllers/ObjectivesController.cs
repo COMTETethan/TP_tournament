@@ -57,7 +57,10 @@ public class ObjectivesController : ControllerBase
     [ProducesResponseType(typeof(IEnumerable<PlayerObjectiveCompletionResponse>), 200)]
     [ProducesResponseType(404)]
     public async Task<IActionResult> GetPlayerCompletions(int id, int playerId)
-        => throw new NotImplementedException();
+    {
+        try { return Ok(await _objectiveService.GetPlayerCompletionsAsync(id, playerId)); }
+        catch (ObjectiveNotFoundException ex) { return NotFound(ex.Message); }
+    }
 
     [HttpPatch("{id:int}/players/{playerId:int}/progress")]
     [ProducesResponseType(typeof(PlayerObjectiveProgressResponse), 200)]
