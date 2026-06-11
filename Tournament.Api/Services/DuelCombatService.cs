@@ -12,8 +12,9 @@ namespace Tournament.Api.Services;
 /// </summary>
 public class DuelCombatService : IDuelCombatService
 {
-    private static readonly object Lock = new();
-    private static readonly Dictionary<int, int> DuelToCombat = new(); // duelId → combatId
+    // Instance state: the service is a Singleton, so the link persists across requests.
+    private readonly object _lock = new();
+    private readonly Dictionary<int, int> _duelToCombat = new(); // duelId → combatId
 
     private readonly IDuelService _duels;
     private readonly IPlayerService _players;
@@ -33,9 +34,9 @@ public class DuelCombatService : IDuelCombatService
     {
         var duel = await _duels.GetDuelAsync(duelId); // throws DuelNotFoundException
 
-        lock (Lock)
+        lock (_lock)
         {
-            if (DuelToCombat.ContainsKey(duelId))
+            if (_duelToCombat.ContainsKey(duelId))
                 throw new InvalidCombatActionException($"A combat has already been started for duel {duelId}.");
         }
 
@@ -47,7 +48,7 @@ public class DuelCombatService : IDuelCombatService
 
         var combat = await _combat.StartCombatAsync(new CreateCombatRequest(ToSpec(p1), ToSpec(p2)));
 
-        lock (Lock) { DuelToCombat[duelId] = combat.Id; }
+        lock (_lock) { _duelToCombat[duelId] = combat.Id; }
 
         return Map(duel, combat);
     }
@@ -86,9 +87,9 @@ public class DuelCombatService : IDuelCombatService
 
     private async Task<int> ResolveCombatIdAsync(int duelId)
     {
-        lock (Lock)
+        lock (_lock)
         {
-            if (DuelToCombat.TryGetValue(duelId, out var combatId))
+            if (_duelToCombat.TryGetValue(duelId, out var combatId))
                 return combatId;
         }
         await _duels.GetDuelAsync(duelId); // surfaces DuelNotFoundException for an unknown duel
