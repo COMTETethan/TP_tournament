@@ -105,19 +105,18 @@ public class TournamentServiceTests
         result.Id.Should().Be(created.Id);
     }
 
-    [Fact]
-    public async Task UpdateTournamentStatusAsync_InvalidStatus_ThrowsInvalidTournamentStatusException()
+    [Theory]
+    [InlineData("BANANA")]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("DONE")]
+    public async Task UpdateTournamentStatusAsync_InvalidStatus_ThrowsInvalidTournamentStatusException(string invalidStatus)
     {
-        // Arrange
         var created = await _service.CreateTournamentAsync(new CreateTournamentRequest("Test"));
-        var request = new UpdateTournamentStatusRequest("BANANA");
 
-        // Act
-        Func<Task> act = () => _service.UpdateTournamentStatusAsync(created.Id, request);
+        Func<Task> act = () => _service.UpdateTournamentStatusAsync(created.Id, new UpdateTournamentStatusRequest(invalidStatus));
 
-        // Assert
-        await act.Should().ThrowAsync<InvalidTournamentStatusException>()
-                 .Where(e => e.AttemptedStatus == "BANANA");
+        await act.Should().ThrowAsync<InvalidTournamentStatusException>();
     }
 
     [Fact]

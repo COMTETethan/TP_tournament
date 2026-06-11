@@ -37,6 +37,10 @@ builder.Services.AddScoped<IDuelService, DuelService>();
 builder.Services.AddScoped<IScoreService, ScoreService>();
 builder.Services.AddScoped<IReplayService, ReplayService>();
 builder.Services.AddScoped<ISkinService, SkinService>();
+builder.Services.AddScoped<ISeasonService, SeasonService>();
+builder.Services.AddScoped<IBattlepassService, BattlepassService>();
+builder.Services.AddScoped<IObjectiveService, ObjectiveService>();
+builder.Services.AddScoped<ISeasonRewardService, SeasonRewardService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
 var app = builder.Build();
@@ -46,3 +50,5 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.Run();
+
+public partial class Program { }

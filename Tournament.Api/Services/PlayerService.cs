@@ -9,37 +9,18 @@ namespace Tournament.Api.Services;
 
 public class PlayerService : IPlayerService
 {
-    // Shared static store across all instances for unit tests
-    private static readonly List<PlayerEntity> SharedPlayers = new();
-    private static int NextId = 1;
+    private readonly List<PlayerEntity> _players;
+    private int _nextId;
     private static readonly HashSet<int> ExistingTournaments = new() { 1 };
 
-    // Seed players 1 & 2 for tests
-    static PlayerService()
+    public PlayerService()
     {
-        lock (SharedPlayers)
+        _players = new List<PlayerEntity>
         {
-            if (SharedPlayers.Count == 0)
-            {
-                SharedPlayers.Add(new PlayerEntity
-                {
-                    Id = 1,
-                    TournamentId = 1,
-                    Name = "Player One",
-                    IsDisqualified = false,
-                    PenaltyPoints = 0
-                });
-                SharedPlayers.Add(new PlayerEntity
-                {
-                    Id = 2,
-                    TournamentId = 1,
-                    Name = "Player Two",
-                    IsDisqualified = true,
-                    PenaltyPoints = 0
-                });
-                NextId = 3;
-            }
-        }
+            new() { Id = 1, TournamentId = 1, Name = "Player One", IsDisqualified = false, PenaltyPoints = 0 },
+            new() { Id = 2, TournamentId = 1, Name = "Player Two", IsDisqualified = true,  PenaltyPoints = 0 }
+        };
+        _nextId = 3;
     }
 
     public Task<PlayerResponse> AddPlayerAsync(int tournamentId, CreatePlayerRequest request)
@@ -47,39 +28,23 @@ public class PlayerService : IPlayerService
         if (!ExistingTournaments.Contains(tournamentId))
             throw new TournamentNotFoundException(tournamentId);
 
-        int newId;
-        lock (SharedPlayers)
-        {
-            newId = NextId++;
-        }
         var entity = new PlayerEntity
         {
-            Id = newId,
+            Id = _nextId++,
             TournamentId = tournamentId,
             Name = request.Name,
             IsDisqualified = false,
             PenaltyPoints = 0
         };
-
-        lock (SharedPlayers)
-        {
-            SharedPlayers.Add(entity);
-        }
-
+        _players.Add(entity);
         return Task.FromResult(Map(entity));
     }
 
     public Task<PlayerResponse> GetPlayerAsync(int id)
     {
-        PlayerEntity? found;
-        lock (SharedPlayers)
-        {
-            found = SharedPlayers.FirstOrDefault(p => p.Id == id);
-        }
-
+        var found = _players.FirstOrDefault(p => p.Id == id);
         if (found is null)
             throw new PlayerNotFoundException(id);
-
         return Task.FromResult(Map(found));
     }
 
@@ -88,26 +53,17 @@ public class PlayerService : IPlayerService
         if (!ExistingTournaments.Contains(tournamentId))
             throw new TournamentNotFoundException(tournamentId);
 
-        List<PlayerEntity> snapshot;
-        lock (SharedPlayers)
-        {
-            snapshot = SharedPlayers.Where(p => p.TournamentId == tournamentId).ToList();
-        }
-
-        var results = snapshot.Select(Map).ToList();
+        var results = _players.Where(p => p.TournamentId == tournamentId).Select(Map).ToList();
         return Task.FromResult<IEnumerable<PlayerResponse>>(results);
     }
 
     public Task<PlayerResponse> DisqualifyPlayerAsync(int id)
     {
-        lock (SharedPlayers)
-        {
-            var p = SharedPlayers.FirstOrDefault(x => x.Id == id);
-            if (p is null) throw new PlayerNotFoundException(id);
-            p.IsDisqualified = true;
-            p.PenaltyPoints = 0;
-            return Task.FromResult(Map(p));
-        }
+        var p = _players.FirstOrDefault(x => x.Id == id);
+        if (p is null) throw new PlayerNotFoundException(id);
+        p.IsDisqualified = true;
+        p.PenaltyPoints = 0;
+        return Task.FromResult(Map(p));
     }
 
     public Task<PlayerResponse> AddPenaltyAsync(int id, AddPenaltyRequest request)
@@ -115,13 +71,10 @@ public class PlayerService : IPlayerService
         if (request.PenaltyPoints < 0)
             throw new ArgumentException("PenaltyPoints must be non-negative.", nameof(request.PenaltyPoints));
 
-        lock (SharedPlayers)
-        {
-            var p = SharedPlayers.FirstOrDefault(x => x.Id == id);
-            if (p is null) throw new PlayerNotFoundException(id);
-            p.PenaltyPoints += request.PenaltyPoints;
-            return Task.FromResult(Map(p));
-        }
+        var p = _players.FirstOrDefault(x => x.Id == id);
+        if (p is null) throw new PlayerNotFoundException(id);
+        p.PenaltyPoints += request.PenaltyPoints;
+        return Task.FromResult(Map(p));
     }
 
     private static PlayerResponse Map(PlayerEntity e)
