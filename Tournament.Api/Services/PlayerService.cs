@@ -11,7 +11,6 @@ public class PlayerService : IPlayerService
 {
     private readonly List<PlayerEntity> _players;
     private int _nextId;
-    private static readonly HashSet<int> ExistingTournaments = new() { 1 };
 
     public PlayerService()
     {
@@ -25,7 +24,7 @@ public class PlayerService : IPlayerService
 
     public Task<PlayerResponse> AddPlayerAsync(int tournamentId, CreatePlayerRequest request)
     {
-        if (!ExistingTournaments.Contains(tournamentId))
+        if (!TournamentService.Exists(tournamentId))
             throw new TournamentNotFoundException(tournamentId);
 
         var entity = new PlayerEntity
@@ -50,7 +49,7 @@ public class PlayerService : IPlayerService
 
     public Task<IEnumerable<PlayerResponse>> GetTournamentPlayersAsync(int tournamentId)
     {
-        if (!ExistingTournaments.Contains(tournamentId))
+        if (!TournamentService.Exists(tournamentId))
             throw new TournamentNotFoundException(tournamentId);
 
         var results = _players.Where(p => p.TournamentId == tournamentId).Select(Map).ToList();
