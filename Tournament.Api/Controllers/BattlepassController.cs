@@ -17,6 +17,7 @@ public class BattlepassController : ControllerBase
         _battlepassService = battlepassService;
     }
 
+    /// <summary>Create a battlepass for a season.</summary>
     [HttpPost]
     [ProducesResponseType(typeof(BattlepassResponse), 201)]
     [ProducesResponseType(400)]
@@ -30,6 +31,7 @@ public class BattlepassController : ControllerBase
         catch (ArgumentException ex) { return BadRequest(ex.Message); }
     }
 
+    /// <summary>Get the battlepass for a season.</summary>
     [HttpGet("season/{seasonId:int}")]
     [ProducesResponseType(typeof(BattlepassResponse), 200)]
     [ProducesResponseType(404)]
@@ -39,6 +41,7 @@ public class BattlepassController : ControllerBase
         catch (BattlepassNotFoundException ex) { return NotFound(ex.Message); }
     }
 
+    /// <summary>Add a tier to a battlepass.</summary>
     [HttpPost("{id:int}/tiers")]
     [ProducesResponseType(typeof(BattlepassTierResponse), 201)]
     [ProducesResponseType(400)]
@@ -54,6 +57,7 @@ public class BattlepassController : ControllerBase
         catch (ArgumentException ex) { return BadRequest(ex.Message); }
     }
 
+    /// <summary>List all tiers of a battlepass.</summary>
     [HttpGet("{id:int}/tiers")]
     [ProducesResponseType(typeof(IEnumerable<BattlepassTierResponse>), 200)]
     [ProducesResponseType(404)]
@@ -63,6 +67,7 @@ public class BattlepassController : ControllerBase
         catch (BattlepassNotFoundException ex) { return NotFound(ex.Message); }
     }
 
+    /// <summary>Get a player's battlepass progress.</summary>
     [HttpGet("{id:int}/players/{playerId:int}/progress")]
     [ProducesResponseType(typeof(PlayerBattlepassProgressResponse), 200)]
     [ProducesResponseType(404)]
@@ -72,6 +77,7 @@ public class BattlepassController : ControllerBase
         catch (BattlepassNotFoundException ex) { return NotFound(ex.Message); }
     }
 
+    /// <summary>Add XP to a player's battlepass, unlocking tiers if thresholds are reached.</summary>
     [HttpPost("{id:int}/players/{playerId:int}/xp")]
     [ProducesResponseType(typeof(PlayerBattlepassProgressResponse), 200)]
     [ProducesResponseType(400)]
