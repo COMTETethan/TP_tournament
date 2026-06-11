@@ -1,6 +1,6 @@
 namespace Tournament.Domain.Service;
 
-public class ScoreCalculator
+public class ScoreCalculator : IScoreCalculator
 {
     /// <summary>
     /// Calculates the final score of a player according to tournament rules.
