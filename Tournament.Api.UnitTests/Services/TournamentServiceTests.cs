@@ -130,4 +130,14 @@ public class TournamentServiceTests
         await act.Should().ThrowAsync<TournamentNotFoundException>()
                  .Where(e => e.TournamentId == 9999);
     }
+
+    [Fact]
+    public async Task UpdateTournamentStatusAsync_EmptyStatus_ThrowsInvalidTournamentStatusException()
+    {
+        var created = await _service.CreateTournamentAsync(new CreateTournamentRequest("Tournoi Vide"));
+
+        Func<Task> act = () => _service.UpdateTournamentStatusAsync(created.Id, new UpdateTournamentStatusRequest(""));
+
+        await act.Should().ThrowAsync<InvalidTournamentStatusException>();
+    }
 }

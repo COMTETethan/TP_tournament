@@ -185,4 +185,28 @@ public class ReplayServiceTests
         await act.Should().ThrowAsync<DuelNotFoundException>()
                  .Where(e => e.DuelId == 9999);
     }
+
+    [Fact]
+    public async Task AddEventAsync_NonExistingReplay_ThrowsReplayNotFoundException()
+    {
+        Func<Task> act = () => _service.AddEventAsync(8888, new AddReplayEventRequest("ATTACK", 100, null, null, null));
+
+        await act.Should().ThrowAsync<ReplayNotFoundException>();
+    }
+
+    [Fact]
+    public async Task GetEventsAsync_NonExistingReplay_ThrowsReplayNotFoundException()
+    {
+        Func<Task> act = () => _service.GetEventsAsync(8888);
+
+        await act.Should().ThrowAsync<ReplayNotFoundException>();
+    }
+
+    [Fact]
+    public async Task CompleteReplayAsync_NonExistingReplay_ThrowsReplayNotFoundException()
+    {
+        Func<Task> act = () => _service.CompleteReplayAsync(8888);
+
+        await act.Should().ThrowAsync<ReplayNotFoundException>();
+    }
 }

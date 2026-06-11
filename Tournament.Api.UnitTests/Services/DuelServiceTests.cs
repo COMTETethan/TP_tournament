@@ -151,4 +151,30 @@ public class DuelServiceTests
         await act.Should().ThrowAsync<DuelAlreadyEndedException>()
                  .Where(e => e.DuelId == created.Id);
     }
+
+    [Fact]
+    public async Task SetDuelOutcomeAsync_WhitespaceOutcome_ThrowsArgumentException()
+    {
+        var created = await _service.CreateDuelAsync(1, new CreateDuelRequest(1, 2, 1));
+
+        Func<Task> act = () => _service.SetDuelOutcomeAsync(created.Id, new SetDuelOutcomeRequest("   "));
+
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task SetDuelOutcomeAsync_NonExistingDuel_ThrowsDuelNotFoundException()
+    {
+        Func<Task> act = () => _service.SetDuelOutcomeAsync(9999, new SetDuelOutcomeRequest("PLAYER1_WIN"));
+
+        await act.Should().ThrowAsync<DuelNotFoundException>();
+    }
+
+    [Fact]
+    public async Task EndDuelAsync_NonExistingDuel_ThrowsDuelNotFoundException()
+    {
+        Func<Task> act = () => _service.EndDuelAsync(9999, new EndDuelRequest(120));
+
+        await act.Should().ThrowAsync<DuelNotFoundException>();
+    }
 }

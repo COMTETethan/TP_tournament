@@ -142,4 +142,40 @@ public class SeasonServiceTests
         result.TotalScore.Should().Be(0);
         result.TournamentsPlayed.Should().Be(0);
     }
+
+    [Fact]
+    public async Task GetPlayerSeasonalStatsAsync_CalledTwice_ReturnsSameStats()
+    {
+        var season = await _service.CreateSeasonAsync(new CreateSeasonRequest("Saison Stats 2", Start, End));
+
+        var first  = await _service.GetPlayerSeasonalStatsAsync(season.Id, 1);
+        var second = await _service.GetPlayerSeasonalStatsAsync(season.Id, 1);
+
+        second.Should().BeEquivalentTo(first);
+    }
+
+    [Fact]
+    public async Task GetPlayerSeasonalStatsAsync_TwoPlayers_EachGetsOwnStats()
+    {
+        var season = await _service.CreateSeasonAsync(new CreateSeasonRequest("Saison Multi", Start, End));
+
+        await _service.GetPlayerSeasonalStatsAsync(season.Id, 1);
+        var p2 = await _service.GetPlayerSeasonalStatsAsync(season.Id, 2);
+
+        p2.PlayerId.Should().Be(2);
+        p2.TotalScore.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GetPlayerSeasonalStatsAsync_TwoSeasons_EachGetsOwnStats()
+    {
+        var s1 = await _service.CreateSeasonAsync(new CreateSeasonRequest("S1", Start, End));
+        var s2 = await _service.CreateSeasonAsync(new CreateSeasonRequest("S2", Start, End));
+
+        await _service.GetPlayerSeasonalStatsAsync(s1.Id, 1);
+        var result = await _service.GetPlayerSeasonalStatsAsync(s2.Id, 1);
+
+        result.SeasonId.Should().Be(s2.Id);
+        result.TotalScore.Should().Be(0);
+    }
 }

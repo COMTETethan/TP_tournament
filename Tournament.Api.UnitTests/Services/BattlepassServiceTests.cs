@@ -149,4 +149,73 @@ public class BattlepassServiceTests
 
         await act.Should().ThrowAsync<ArgumentException>();
     }
+
+    [Fact]
+    public async Task AddXpAsync_NoTiersAdded_CurrentTierRemainsZero()
+    {
+        var bp = await _service.CreateBattlepassAsync(new CreateBattlepassRequest(1, 100, true));
+
+        var result = await _service.AddXpAsync(bp.Id, 1, new AddXpRequest(500));
+
+        result.CurrentTier.Should().Be(0, "no tiers defined so none can be unlocked");
+    }
+
+    [Fact]
+    public async Task GetPlayerProgressAsync_CalledTwice_ReturnsSameProgress()
+    {
+        var bp = await _service.CreateBattlepassAsync(new CreateBattlepassRequest(1, 100, true));
+
+        var first  = await _service.GetPlayerProgressAsync(bp.Id, 1);
+        var second = await _service.GetPlayerProgressAsync(bp.Id, 1);
+
+        second.Should().BeEquivalentTo(first);
+    }
+
+    [Fact]
+    public async Task AddXpAsync_XpBelowTierThreshold_TierRemainsZero()
+    {
+        var bp = await _service.CreateBattlepassAsync(new CreateBattlepassRequest(1, 200, true));
+        await _service.AddTierAsync(bp.Id, new AddBattlepassTierRequest(1, 100, false, "SKIN", "{}"));
+
+        var result = await _service.AddXpAsync(bp.Id, 1, new AddXpRequest(50));
+
+        result.CurrentTier.Should().Be(0, "XP 50 < threshold 100 so no tier unlocked");
+    }
+
+    [Fact]
+    public async Task GetPlayerProgressAsync_TwoPlayers_EachGetsOwnProgress()
+    {
+        var bp = await _service.CreateBattlepassAsync(new CreateBattlepassRequest(1, 100, true));
+
+        await _service.GetPlayerProgressAsync(bp.Id, 1);
+        var p2 = await _service.GetPlayerProgressAsync(bp.Id, 2);
+
+        p2.PlayerId.Should().Be(2);
+        p2.CurrentXp.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GetPlayerProgressAsync_TwoBattlepasses_EachGetsOwnProgress()
+    {
+        var bp1 = await _service.CreateBattlepassAsync(new CreateBattlepassRequest(1, 100, true));
+        var bp2 = await _service.CreateBattlepassAsync(new CreateBattlepassRequest(1, 200, true));
+
+        await _service.GetPlayerProgressAsync(bp1.Id, 1);
+        var result = await _service.GetPlayerProgressAsync(bp2.Id, 1);
+
+        result.BattlepassId.Should().Be(bp2.Id);
+        result.CurrentXp.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task AddXpAsync_TierBelongsToOtherBattlepass_IsNotUnlocked()
+    {
+        var bp1 = await _service.CreateBattlepassAsync(new CreateBattlepassRequest(1, 200, true));
+        var bp2 = await _service.CreateBattlepassAsync(new CreateBattlepassRequest(1, 200, true));
+        await _service.AddTierAsync(bp1.Id, new AddBattlepassTierRequest(1, 10, false, "SKIN", "{}"));
+
+        var result = await _service.AddXpAsync(bp2.Id, 1, new AddXpRequest(500));
+
+        result.CurrentTier.Should().Be(0, "tier belongs to bp1 not bp2");
+    }
 }

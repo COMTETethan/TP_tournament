@@ -174,4 +174,38 @@ public class ScoreServiceTests
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>();
     }
+
+    [Fact]
+    public async Task GetPlayerScoreAsync_Player1LossAndDraw_ReturnsCorrectScore()
+    {
+        var duels = new List<DuelResponse>
+        {
+            new(3, 1, Player1Id: 1, Player2Id: 2, Outcome: "PLAYER2_WIN", DuelOrder: 1, PlayedAt: Now, DurationSeconds: 120),
+            new(4, 1, Player1Id: 1, Player2Id: 2, Outcome: "DRAW",        DuelOrder: 2, PlayedAt: Now, DurationSeconds: 90),
+        };
+        _players.Setup(s => s.GetPlayerAsync(1)).ReturnsAsync(P1);
+        _duels.Setup(s => s.GetTournamentDuelsAsync(1)).ReturnsAsync(duels);
+
+        var result = await _service.GetPlayerScoreAsync(1);
+
+        result.FinalScore.Should().Be(0, "1 loss (-1) + 1 draw (+1) - 0 penalty = 0, floored at 0");
+    }
+
+    [Fact]
+    public async Task GetPlayerScoreAsync_PlayerAsPlayer2_AllOutcomes_ReturnsCorrectScore()
+    {
+        var p3 = new PlayerResponse(3, 1, "Lancelot", IsDisqualified: false, PenaltyPoints: 0);
+        var duels = new List<DuelResponse>
+        {
+            new(10, 1, Player1Id: 1, Player2Id: 3, Outcome: "PLAYER2_WIN", DuelOrder: 1, PlayedAt: Now, DurationSeconds: 120),
+            new(11, 1, Player1Id: 1, Player2Id: 3, Outcome: "PLAYER1_WIN", DuelOrder: 2, PlayedAt: Now, DurationSeconds: 150),
+            new(12, 1, Player1Id: 1, Player2Id: 3, Outcome: "DRAW",        DuelOrder: 3, PlayedAt: Now, DurationSeconds: 90),
+        };
+        _players.Setup(s => s.GetPlayerAsync(3)).ReturnsAsync(p3);
+        _duels.Setup(s => s.GetTournamentDuelsAsync(1)).ReturnsAsync(duels);
+
+        var result = await _service.GetPlayerScoreAsync(3);
+
+        result.FinalScore.Should().Be(3, "1 win (3) + 1 loss (-1) + 1 draw (+1) = 3");
+    }
 }

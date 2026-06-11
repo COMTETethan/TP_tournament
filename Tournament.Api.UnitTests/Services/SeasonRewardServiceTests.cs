@@ -225,4 +225,18 @@ public class SeasonRewardServiceTests
 
         await act.Should().ThrowAsync<SeasonNotFoundException>();
     }
+
+    [Fact]
+    public async Task GetPlayerSeasonRewardsAsync_RewardsExistForOtherPlayer_ReturnsEmpty()
+    {
+        _mockSeasonService.Setup(s => s.GetAllPlayerSeasonalStatsAsync(1))
+                          .ReturnsAsync(new[] { new SeasonalStatsResponse(1, 1, 100, 3, 2, 1, 0, 2, null) });
+        await _service.CreateSeasonRewardAsync(1, new CreateSeasonRewardRequest(1, null, "SKIN", "{}", "Champion"));
+        await _service.DistributeRewardsAsync(1);
+
+        // Player 2 has no rewards — lambda must evaluate and return false
+        var result = await _service.GetPlayerSeasonRewardsAsync(1, 2);
+
+        result.Should().BeEmpty();
+    }
 }

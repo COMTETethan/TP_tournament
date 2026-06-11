@@ -148,4 +148,20 @@ public class PlayerServiceTests
         await act.Should().ThrowAsync<ArgumentException>()
                  .WithMessage("*PenaltyPoints*");
     }
+
+    [Fact]
+    public async Task DisqualifyPlayerAsync_NonExistingPlayer_ThrowsPlayerNotFoundException()
+    {
+        Func<Task> act = () => _service.DisqualifyPlayerAsync(9999);
+
+        await act.Should().ThrowAsync<PlayerNotFoundException>();
+    }
+
+    [Fact]
+    public async Task AddPenaltyAsync_NonExistingPlayer_ThrowsPlayerNotFoundException()
+    {
+        Func<Task> act = () => _service.AddPenaltyAsync(9999, new AddPenaltyRequest(1));
+
+        await act.Should().ThrowAsync<PlayerNotFoundException>();
+    }
 }

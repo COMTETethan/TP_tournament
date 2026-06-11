@@ -248,4 +248,72 @@ public class ObjectiveServiceTests
 
         await act.Should().ThrowAsync<ObjectiveNotFoundException>();
     }
+
+    [Fact]
+    public async Task GetPlayerProgressAsync_CalledTwice_ReturnsSameProgress()
+    {
+        var obj = await _service.CreateObjectiveAsync(
+            new CreateObjectiveRequest(1, "Obj Existant", "d", "WIN_DUELS", 5, 100, "NONE"));
+
+        var first  = await _service.GetPlayerProgressAsync(obj.Id, 1);
+        var second = await _service.GetPlayerProgressAsync(obj.Id, 1);
+
+        second.Should().BeEquivalentTo(first);
+    }
+
+    [Fact]
+    public async Task GetPlayerProgressAsync_TwoPlayers_EachGetsOwnProgress()
+    {
+        var obj = await _service.CreateObjectiveAsync(
+            new CreateObjectiveRequest(1, "Obj Multi", "d", "WIN_DUELS", 5, 100, "NONE"));
+
+        await _service.GetPlayerProgressAsync(obj.Id, 1);
+        var p2 = await _service.GetPlayerProgressAsync(obj.Id, 2);
+
+        p2.PlayerId.Should().Be(2);
+        p2.CurrentValue.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GetPlayerProgressAsync_TwoObjectives_EachGetsOwnProgress()
+    {
+        var obj1 = await _service.CreateObjectiveAsync(
+            new CreateObjectiveRequest(1, "Obj A", "d", "WIN_DUELS", 5, 100, "NONE"));
+        var obj2 = await _service.CreateObjectiveAsync(
+            new CreateObjectiveRequest(1, "Obj B", "d", "WIN_DUELS", 5, 100, "NONE"));
+
+        await _service.GetPlayerProgressAsync(obj1.Id, 1);
+        var p2 = await _service.GetPlayerProgressAsync(obj2.Id, 1);
+
+        p2.ObjectiveId.Should().Be(obj2.Id);
+        p2.CurrentValue.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task GetPlayerCompletionsAsync_CompletionExistsForOtherPlayer_ReturnsEmpty()
+    {
+        var obj = await _service.CreateObjectiveAsync(
+            new CreateObjectiveRequest(1, "Obj Completions", "d", "WIN_DUELS", 1, 100, "DAILY"));
+
+        await _service.UpdatePlayerProgressAsync(obj.Id, 1, new UpdateObjectiveProgressRequest(1, "2026-06-11"));
+
+        var result = await _service.GetPlayerCompletionsAsync(obj.Id, 2);
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetPlayerCompletionsAsync_CompletionForDifferentObjective_ReturnsEmpty()
+    {
+        var obj1 = await _service.CreateObjectiveAsync(
+            new CreateObjectiveRequest(1, "Obj 1", "d", "WIN_DUELS", 1, 100, "DAILY"));
+        var obj2 = await _service.CreateObjectiveAsync(
+            new CreateObjectiveRequest(1, "Obj 2", "d", "WIN_DUELS", 1, 100, "DAILY"));
+
+        await _service.UpdatePlayerProgressAsync(obj1.Id, 1, new UpdateObjectiveProgressRequest(1, "2026-06-11"));
+
+        var result = await _service.GetPlayerCompletionsAsync(obj2.Id, 1);
+
+        result.Should().BeEmpty();
+    }
 }
