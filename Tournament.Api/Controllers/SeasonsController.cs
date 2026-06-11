@@ -17,6 +17,7 @@ public class SeasonsController : ControllerBase
         _seasonService = seasonService;
     }
 
+    /// <summary>Create a new season.</summary>
     [HttpPost]
     [ProducesResponseType(typeof(SeasonResponse), 201)]
     [ProducesResponseType(400)]
@@ -30,6 +31,7 @@ public class SeasonsController : ControllerBase
         catch (ArgumentException ex) { return BadRequest(ex.Message); }
     }
 
+    /// <summary>Get a season by id.</summary>
     [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(SeasonResponse), 200)]
     [ProducesResponseType(404)]
@@ -39,11 +41,13 @@ public class SeasonsController : ControllerBase
         catch (SeasonNotFoundException ex) { return NotFound(ex.Message); }
     }
 
+    /// <summary>List all seasons.</summary>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<SeasonResponse>), 200)]
     public async Task<IActionResult> GetAllSeasons()
         => Ok(await _seasonService.GetAllSeasonsAsync());
 
+    /// <summary>Update season status (UPCOMING → ACTIVE → ENDED).</summary>
     [HttpPatch("{id:int}/status")]
     [ProducesResponseType(typeof(SeasonResponse), 200)]
     [ProducesResponseType(400)]
@@ -55,6 +59,7 @@ public class SeasonsController : ControllerBase
         catch (SeasonNotFoundException ex) { return NotFound(ex.Message); }
     }
 
+    /// <summary>Associate a tournament with a season.</summary>
     [HttpPost("{id:int}/tournaments/{tournamentId:int}")]
     [ProducesResponseType(204)]
     [ProducesResponseType(404)]
@@ -68,6 +73,7 @@ public class SeasonsController : ControllerBase
         catch (SeasonNotFoundException ex) { return NotFound(ex.Message); }
     }
 
+    /// <summary>Get a player's seasonal stats (score, wins, losses, draws).</summary>
     [HttpGet("{id:int}/players/{playerId:int}/stats")]
     [ProducesResponseType(typeof(SeasonalStatsResponse), 200)]
     [ProducesResponseType(404)]
