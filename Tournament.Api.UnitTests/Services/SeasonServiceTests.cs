@@ -178,4 +178,57 @@ public class SeasonServiceTests
         result.SeasonId.Should().Be(s2.Id);
         result.TotalScore.Should().Be(0);
     }
+
+    // ── AddTournamentToSeasonAsync ─────────────────────────────────────────
+
+    [Fact]
+    public async Task AddTournamentToSeasonAsync_ValidSeason_Completes()
+    {
+        var season = await _service.CreateSeasonAsync(new CreateSeasonRequest("Saison T", Start, End));
+
+        await _service.AddTournamentToSeasonAsync(season.Id, tournamentId: 1);
+
+        // No exception = success (idempotent add to HashSet)
+    }
+
+    [Fact]
+    public async Task AddTournamentToSeasonAsync_NonExistingSeason_ThrowsSeasonNotFoundException()
+    {
+        Func<Task> act = () => _service.AddTournamentToSeasonAsync(9999, tournamentId: 1);
+
+        await act.Should().ThrowAsync<SeasonNotFoundException>();
+    }
+
+    // ── GetAllPlayerSeasonalStatsAsync ─────────────────────────────────────
+
+    [Fact]
+    public async Task GetAllPlayerSeasonalStatsAsync_WithStats_ReturnsStats()
+    {
+        var season = await _service.CreateSeasonAsync(new CreateSeasonRequest("Saison All", Start, End));
+        await _service.GetPlayerSeasonalStatsAsync(season.Id, 1);
+        await _service.GetPlayerSeasonalStatsAsync(season.Id, 2);
+
+        var result = await _service.GetAllPlayerSeasonalStatsAsync(season.Id);
+
+        result.Should().HaveCountGreaterThanOrEqualTo(2);
+        result.Should().OnlyContain(s => s.SeasonId == season.Id);
+    }
+
+    [Fact]
+    public async Task GetAllPlayerSeasonalStatsAsync_EmptySeason_ReturnsEmpty()
+    {
+        var season = await _service.CreateSeasonAsync(new CreateSeasonRequest("Saison Vide", Start, End));
+
+        var result = await _service.GetAllPlayerSeasonalStatsAsync(season.Id);
+
+        result.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetAllPlayerSeasonalStatsAsync_NonExistingSeason_ThrowsSeasonNotFoundException()
+    {
+        Func<Task> act = () => _service.GetAllPlayerSeasonalStatsAsync(9999);
+
+        await act.Should().ThrowAsync<SeasonNotFoundException>();
+    }
 }

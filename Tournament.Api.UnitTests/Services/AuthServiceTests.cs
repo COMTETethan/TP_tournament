@@ -1,4 +1,5 @@
 using FluentAssertions;
+using Microsoft.Extensions.Configuration;
 using Tournament.Api.DTOs.Requests;
 using Tournament.Api.Exceptions;
 using Tournament.Api.Services;
@@ -179,6 +180,48 @@ public class AuthServiceTests
 
         // Assert
         await act.Should().ThrowAsync<InvalidCredentialsException>();
+    }
+
+    // ── IConfiguration constructor ──────────────────────────────────────────
+
+    private static IConfiguration BuildConfig(Dictionary<string, string?> values) =>
+        new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+
+    [Fact]
+    public void Constructor_WithFullConfiguration_InitializesService()
+    {
+        var config = BuildConfig(new()
+        {
+            ["Jwt:Secret"]                = "a-super-secret-key-at-least-32-chars!!",
+            ["Jwt:Issuer"]                = "TestIssuer",
+            ["Jwt:Audience"]              = "TestAudience",
+            ["Jwt:AccessTokenExpiryHours"]  = "8",
+            ["Jwt:RefreshTokenExpiryDays"]  = "14",
+        });
+
+        var svc = new AuthService(config);
+
+        svc.Should().NotBeNull();
+    }
+
+    [Fact]
+    public void Constructor_WithMissingJwtSecret_ThrowsInvalidOperationException()
+    {
+        var config = BuildConfig(new() { ["Jwt:Secret"] = null });
+
+        Action act = () => _ = new AuthService(config);
+
+        act.Should().Throw<InvalidOperationException>().WithMessage("*Jwt:Secret*");
+    }
+
+    [Fact]
+    public void Constructor_WithOnlySecret_UsesDefaultsForOptionalValues()
+    {
+        var config = BuildConfig(new() { ["Jwt:Secret"] = "a-super-secret-key-at-least-32-chars!!" });
+
+        var svc = new AuthService(config);
+
+        svc.Should().NotBeNull();
     }
 
     // Helper: extract 'sub' claim from JWT without validating signature
