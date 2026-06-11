@@ -64,10 +64,12 @@
 
 ## 5. Critères de sortie
 
-- 100 % des tests passent (phase GREEN)
-- Couverture lignes ≥ 95 % sur `ScoreCalculator`
-- Couverture branches ≥ 90 % sur `ScoreCalculator`
-- Zéro test ignoré ou skippé
+- 100 % des tests passent (phase GREEN) — **87/87 tests PASS** ✅
+- Couverture lignes ≥ 95 % sur `ScoreCalculator` — **100%** ✅
+- Couverture branches ≥ 90 % sur `ScoreCalculator` — **100%** ✅
+- Couverture lignes ≥ 95 % sur `TournamentRanking` — **100%** ✅
+- Couverture branches ≥ 90 % sur `TournamentRanking` — **100%** ✅
+- Zéro test ignoré ou skippé ✅
 
 ---
 
@@ -145,6 +147,9 @@
 | TC-022 | `GetRanking_TiedPlayers_BothPresentInRanking` | REQ-T-012 | 2 joueurs même score | Les deux présents | Basse |
 | TC-023 | `GetChampion_MultiplePlayers_ReturnsHighestScorePlayer` | REQ-T-013 | 3 joueurs scores différents | Joueur avec 14 pts | Moyenne |
 | TC-024 | `GetChampion_AllDisqualified_ReturnsPlayerWithZeroScore` | REQ-T-013, REQ-T-006 | 2 joueurs disqualifiés | Score champion = 0 | Basse |
+| TC-025 | `GetRanking_NullPlayers_ThrowsArgumentNullException` | REQ-T-012 | null | ArgumentNullException("players") | Haute |
+| TC-026 | `GetChampion_NullPlayers_ThrowsArgumentNullException` | REQ-T-013 | null | ArgumentNullException("players") | Haute |
+| TC-027 | `GetChampion_EmptyPlayersList_ThrowsInvalidOperationException` | REQ-T-013 | [] | InvalidOperationException | Haute |
 
 ---
 
@@ -152,19 +157,19 @@
 
 | Exigence | Description | Cas de test | Statut |
 |---|---|---|---|
-| REQ-T-001 | Victoire = +3 points | TC-001, TC-002, TC-018, TC-019 | À valider |
-| REQ-T-002 | Match nul = +1 point | TC-001, TC-003, TC-019 | À valider |
-| REQ-T-003 | Défaite = 0 point | TC-001, TC-004, TC-018, TC-019 | À valider |
-| REQ-T-004 | Bonus +5 pour 3+ victoires consécutives (une fois/série) | TC-005, TC-006, TC-007, TC-009, TC-018, TC-019, TC-020 | À valider |
-| REQ-T-005 | Plusieurs séries → plusieurs bonus | TC-008, TC-020 | À valider |
-| REQ-T-006 | Disqualification → score = 0 | TC-010, TC-011, TC-024 | À valider |
-| REQ-T-007 | Pénalités soustraites du score | TC-012 | À valider |
-| REQ-T-008 | Score final jamais négatif | TC-013, TC-014 | À valider |
-| REQ-T-009 | null → ArgumentNullException | TC-016 | À valider |
-| REQ-T-010 | penalty < 0 → ArgumentException | TC-017 | À valider |
-| REQ-T-011 | Liste vide → 0 | TC-015 | À valider |
-| REQ-T-012 | GetRanking trié par score décroissant | TC-021, TC-022 | À valider |
-| REQ-T-013 | GetChampion retourne le meilleur score | TC-023, TC-024 | À valider |
+| REQ-T-001 | Victoire = +3 points | TC-001, TC-002, TC-018, TC-019 | ✅ PASS |
+| REQ-T-002 | Match nul = +1 point | TC-001, TC-003, TC-019 | ✅ PASS |
+| REQ-T-003 | Défaite = 0 point | TC-001, TC-004, TC-018, TC-019 | ✅ PASS |
+| REQ-T-004 | Bonus +5 pour 3+ victoires consécutives (une fois/série) | TC-005, TC-006, TC-007, TC-009, TC-018, TC-019, TC-020 | ✅ PASS |
+| REQ-T-005 | Plusieurs séries → plusieurs bonus | TC-008, TC-020 | ✅ PASS |
+| REQ-T-006 | Disqualification → score = 0 | TC-010, TC-011, TC-024 | ✅ PASS |
+| REQ-T-007 | Pénalités soustraites du score | TC-012 | ✅ PASS |
+| REQ-T-008 | Score final jamais négatif | TC-013, TC-014 | ✅ PASS |
+| REQ-T-009 | null → ArgumentNullException | TC-016 | ✅ PASS |
+| REQ-T-010 | penalty < 0 → ArgumentException | TC-017 | ✅ PASS |
+| REQ-T-011 | Liste vide → 0 | TC-015 | ✅ PASS |
+| REQ-T-012 | GetRanking trié par score décroissant | TC-021, TC-022, TC-025 | ✅ PASS |
+| REQ-T-013 | GetChampion retourne le meilleur score | TC-023, TC-024, TC-026, TC-027 | ✅ PASS |
 
 ---
 
