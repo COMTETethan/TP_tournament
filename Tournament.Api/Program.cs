@@ -57,6 +57,8 @@ builder.Services.AddScoped<ISeasonService, SeasonService>();
 builder.Services.AddScoped<IBattlepassService, BattlepassService>();
 builder.Services.AddScoped<IObjectiveService, ObjectiveService>();
 builder.Services.AddScoped<ISeasonRewardService, SeasonRewardService>();
+builder.Services.AddScoped<IClassService, ClassService>();
+builder.Services.AddScoped<ICombatService, CombatService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
 var app = builder.Build();
