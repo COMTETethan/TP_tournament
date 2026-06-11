@@ -8,7 +8,7 @@ namespace Tournament.Api.Services;
 public class SeasonService : ISeasonService
 {
     private readonly List<SeasonEntity> _seasons = new();
-    private readonly List<(int SeasonId, int TournamentId)> _tournamentSeasons = new();
+    private readonly HashSet<(int SeasonId, int TournamentId)> _tournamentSeasons = new();
     private readonly List<SeasonalStatsEntity> _stats = new();
     private int _nextId = 1;
 
@@ -33,19 +33,14 @@ public class SeasonService : ISeasonService
     }
 
     public Task<SeasonResponse> GetSeasonAsync(int id)
-    {
-        var entity = _seasons.FirstOrDefault(s => s.Id == id)
-            ?? throw new SeasonNotFoundException(id);
-        return Task.FromResult(Map(entity));
-    }
+        => Task.FromResult(Map(FindOrThrow(id)));
 
     public Task<IEnumerable<SeasonResponse>> GetAllSeasonsAsync()
         => Task.FromResult<IEnumerable<SeasonResponse>>(_seasons.Select(Map).ToList());
 
     public Task<SeasonResponse> UpdateSeasonStatusAsync(int id, UpdateSeasonStatusRequest request)
     {
-        var entity = _seasons.FirstOrDefault(s => s.Id == id)
-            ?? throw new SeasonNotFoundException(id);
+        var entity = FindOrThrow(id);
 
         var valid = (entity.Status, request.Status) switch
         {
@@ -63,19 +58,14 @@ public class SeasonService : ISeasonService
 
     public Task AddTournamentToSeasonAsync(int seasonId, int tournamentId)
     {
-        if (!_seasons.Any(s => s.Id == seasonId))
-            throw new SeasonNotFoundException(seasonId);
-
-        if (!_tournamentSeasons.Contains((seasonId, tournamentId)))
-            _tournamentSeasons.Add((seasonId, tournamentId));
-
+        FindOrThrow(seasonId);
+        _tournamentSeasons.Add((seasonId, tournamentId));
         return Task.CompletedTask;
     }
 
     public Task<SeasonalStatsResponse> GetPlayerSeasonalStatsAsync(int seasonId, int playerId)
     {
-        if (!_seasons.Any(s => s.Id == seasonId))
-            throw new SeasonNotFoundException(seasonId);
+        FindOrThrow(seasonId);
 
         var stats = _stats.FirstOrDefault(s => s.SeasonId == seasonId && s.PlayerId == playerId);
         if (stats is null)
@@ -85,6 +75,16 @@ public class SeasonService : ISeasonService
         }
         return Task.FromResult(MapStats(stats));
     }
+
+    public Task<IEnumerable<SeasonalStatsResponse>> GetAllPlayerSeasonalStatsAsync(int seasonId)
+    {
+        FindOrThrow(seasonId);
+        return Task.FromResult<IEnumerable<SeasonalStatsResponse>>(
+            _stats.Where(s => s.SeasonId == seasonId).Select(MapStats).ToList());
+    }
+
+    private SeasonEntity FindOrThrow(int id)
+        => _seasons.FirstOrDefault(s => s.Id == id) ?? throw new SeasonNotFoundException(id);
 
     private static SeasonResponse Map(SeasonEntity e)
         => new(e.Id, e.Name, e.Status, e.StartDate, e.EndDate, e.CreatedAt);

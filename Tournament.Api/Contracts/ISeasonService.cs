@@ -11,4 +11,5 @@ public interface ISeasonService
     Task<SeasonResponse> UpdateSeasonStatusAsync(int id, UpdateSeasonStatusRequest request);
     Task AddTournamentToSeasonAsync(int seasonId, int tournamentId);
     Task<SeasonalStatsResponse> GetPlayerSeasonalStatsAsync(int seasonId, int playerId);
+    Task<IEnumerable<SeasonalStatsResponse>> GetAllPlayerSeasonalStatsAsync(int seasonId);
 }
