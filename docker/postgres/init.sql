@@ -4,28 +4,16 @@
 --  Idempotent: all objects use IF NOT EXISTS.
 -- =============================================================
 
--- ── Enum types ────────────────────────────────────────────────
-
-DO $$ BEGIN
-    CREATE TYPE tournament_status AS ENUM ('OPEN', 'IN_PROGRESS', 'CLOSED');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
-DO $$ BEGIN
-    CREATE TYPE duel_outcome AS ENUM ('PLAYER1_WIN', 'PLAYER2_WIN', 'DRAW');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
-DO $$ BEGIN
-    CREATE TYPE match_outcome AS ENUM ('WIN', 'DRAW', 'LOSS');
-EXCEPTION WHEN duplicate_object THEN NULL; END $$;
-
 -- ── tournaments ───────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS tournaments (
-    id         SERIAL          NOT NULL,
-    name       VARCHAR(150)    NOT NULL,
-    status     tournament_status NOT NULL DEFAULT 'OPEN',
-    created_at TIMESTAMPTZ     NOT NULL DEFAULT NOW(),
-    CONSTRAINT pk_tournaments PRIMARY KEY (id)
+    id         SERIAL       NOT NULL,
+    name       VARCHAR(150) NOT NULL,
+    status     VARCHAR(20)  NOT NULL DEFAULT 'OPEN',
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    CONSTRAINT pk_tournaments PRIMARY KEY (id),
+    CONSTRAINT chk_tournament_status
+        CHECK (status IN ('OPEN', 'IN_PROGRESS', 'CLOSED'))
 );
 
 -- ── players ───────────────────────────────────────────────────
@@ -54,7 +42,7 @@ CREATE TABLE IF NOT EXISTS duels (
     tournament_id INT           NOT NULL,
     player1_id    INT           NOT NULL,
     player2_id    INT           NOT NULL,
-    outcome       duel_outcome,                  -- NULL while the duel is in progress
+    outcome       VARCHAR(20),                   -- NULL while the duel is in progress
     duel_order    INT           NOT NULL,
     played_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     duration      INTERVAL,                      -- NULL until the duel ends
@@ -66,7 +54,9 @@ CREATE TABLE IF NOT EXISTS duels (
     CONSTRAINT fk_duels_player2
         FOREIGN KEY (player2_id) REFERENCES players(id),
     CONSTRAINT chk_different_players
-        CHECK (player1_id <> player2_id)
+        CHECK (player1_id <> player2_id),
+    CONSTRAINT chk_duel_outcome
+        CHECK (outcome IN ('PLAYER1_WIN', 'PLAYER2_WIN', 'DRAW') OR outcome IS NULL)
 );
 
 -- Computed column helper (PostgreSQL >= 12): end time of the duel
@@ -81,7 +71,7 @@ CREATE TABLE IF NOT EXISTS match_results (
     id          SERIAL        NOT NULL,
     player_id   INT           NOT NULL,
     duel_id     INT           NOT NULL,
-    outcome     match_outcome NOT NULL,
+    outcome     VARCHAR(10)   NOT NULL,
     match_order INT           NOT NULL,
     CONSTRAINT pk_match_results PRIMARY KEY (id),
     CONSTRAINT fk_mr_player

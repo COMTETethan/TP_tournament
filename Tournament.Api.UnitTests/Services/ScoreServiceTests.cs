@@ -34,14 +34,6 @@ public class ScoreServiceTests
         _service = new ScoreService(_players.Object, _duels.Object, _tournaments.Object);
     }
 
-    [Fact]
-    public void DefaultConstructor_CreatesInstanceWithInMemoryServices()
-    {
-        // Used by ASP.NET Core DI when resolving with concrete in-memory implementations
-        var service = new ScoreService();
-        service.Should().NotBeNull();
-    }
-
     // ── GetPlayerScoreAsync ────────────────────────────────────────────────────
 
     [Fact]

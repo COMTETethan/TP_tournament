@@ -12,14 +12,6 @@ public class ScoreService : IScoreService
     private readonly IDuelService _duelService;
     private readonly ITournamentService _tournamentService;
 
-    public ScoreService()
-    {
-        // For unit tests using in-memory services
-        _playerService = new PlayerService();
-        _duelService = new DuelService();
-        _tournamentService = new TournamentService();
-    }
-
     public ScoreService(IPlayerService playerService, IDuelService duelService, ITournamentService tournamentService)
     {
         _playerService = playerService;
