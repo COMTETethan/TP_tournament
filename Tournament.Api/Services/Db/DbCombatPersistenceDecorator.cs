@@ -74,13 +74,19 @@ public class DbCombatPersistenceDecorator : ICombatService
                 new { CombatId = combat.Id, c.Slot, c.Name, c.ClassId, c.Level, c.CurrentHp, HasSubmitted = c.HasSubmittedAction }, tx);
         }
 
+        // Delete stale events before re-inserting the full replay so that a restarted
+        // API (which resets the in-memory id counter to 1) never leaves orphaned events
+        // from a previous session mixed into the new combat's replay stream.
+        await conn.ExecuteAsync(
+            "DELETE FROM combat_events WHERE combat_id = @Id",
+            new { combat.Id }, tx);
+
         foreach (var e in replay.Events)
         {
             await conn.ExecuteAsync(
                 @"INSERT INTO combat_events
                     (combat_id, sequence, turn, event_type, actor_slot, skill_id, target_slot, amount, effect, champion1_hp, champion2_hp, message)
-                  VALUES (@CombatId, @Sequence, @Turn, @Type, @ActorSlot, @SkillId, @TargetSlot, @Amount, @Effect::aura_effect, @Champion1Hp, @Champion2Hp, @Message)
-                  ON CONFLICT (combat_id, sequence) DO NOTHING",
+                  VALUES (@CombatId, @Sequence, @Turn, @Type, @ActorSlot, @SkillId, @TargetSlot, @Amount, @Effect::aura_effect, @Champion1Hp, @Champion2Hp, @Message)",
                 new { CombatId = combat.Id, e.Sequence, e.Turn, e.Type, e.ActorSlot, e.SkillId,
                       e.TargetSlot, e.Amount, e.Effect, e.Champion1Hp, e.Champion2Hp, e.Message }, tx);
         }
