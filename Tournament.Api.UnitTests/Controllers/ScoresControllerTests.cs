@@ -16,17 +16,17 @@ public class ScoresControllerTests
         _controller = new ScoresController(_mockService.Object);
     }
 
-    // ── GET /api/players/{playerId}/score ──────────────────────
+    // ── GET /api/tournaments/{tournamentId}/players/{playerId}/score ──
 
     [Fact]
-    public async Task GetPlayerScore_ExistingPlayer_ReturnsOk()
+    public async Task GetPlayerScore_RegisteredPlayer_ReturnsOk()
     {
         // Arrange
         var response = new PlayerScoreResponse(PlayerId: 1, PlayerName: "Sir Galahad", FinalScore: 14, IsDisqualified: false);
-        _mockService.Setup(s => s.GetPlayerScoreAsync(1)).ReturnsAsync(response);
+        _mockService.Setup(s => s.GetPlayerScoreAsync(1, 1)).ReturnsAsync(response);
 
         // Act
-        var result = await _controller.GetPlayerScore(1);
+        var result = await _controller.GetPlayerScore(1, 1);
 
         // Assert
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
@@ -35,14 +35,14 @@ public class ScoresControllerTests
     }
 
     [Fact]
-    public async Task GetPlayerScore_NonExistingPlayer_ReturnsNotFound()
+    public async Task GetPlayerScore_NotRegistered_ReturnsNotFound()
     {
         // Arrange
-        _mockService.Setup(s => s.GetPlayerScoreAsync(99))
-                    .ThrowsAsync(new PlayerNotFoundException(99));
+        _mockService.Setup(s => s.GetPlayerScoreAsync(1, 99))
+                    .ThrowsAsync(new RegistrationNotFoundException(1, 99));
 
         // Act
-        var result = await _controller.GetPlayerScore(99);
+        var result = await _controller.GetPlayerScore(1, 99);
 
         // Assert
         result.Should().BeOfType<NotFoundObjectResult>()

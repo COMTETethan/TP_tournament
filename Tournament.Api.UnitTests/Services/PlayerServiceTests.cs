@@ -1,5 +1,4 @@
 using Tournament.Api.DTOs.Requests;
-using Tournament.Api.DTOs.Responses;
 using Tournament.Api.Exceptions;
 using Tournament.Api.Services;
 
@@ -9,107 +8,65 @@ public class PlayerServiceTests
 {
     private readonly PlayerService _service = new();
 
-    // ── AddPlayerAsync ─────────────────────────────────────────
+    private const int KnightClass = 1;
+
+    // ── CreatePlayerAsync ──────────────────────────────────────
 
     [Fact]
-    public async Task AddPlayerAsync_ValidRequest_ReturnsPlayerResponse()
+    public async Task CreatePlayerAsync_ValidRequest_ReturnsChampionOwnedByUser()
     {
-        // Arrange
-        var request = new CreatePlayerRequest("Sir Galahad");
+        var result = await _service.CreatePlayerAsync(userId: 7, new CreatePlayerRequest("Sir Galahad", KnightClass, Level: 3));
 
-        // Act
-        var result = await _service.AddPlayerAsync(tournamentId: 1, request);
-
-        // Assert
         result.Should().NotBeNull();
-        result.Name.Should().Be("Sir Galahad");
-        result.TournamentId.Should().Be(1);
-        result.IsDisqualified.Should().BeFalse();
-        result.PenaltyPoints.Should().Be(0);
         result.Id.Should().BeGreaterThan(0);
+        result.UserId.Should().Be(7);
+        result.Name.Should().Be("Sir Galahad");
+        result.ClassId.Should().Be(KnightClass);
+        result.Level.Should().Be(3);
     }
 
     [Fact]
-    public async Task AddPlayerAsync_NonExistingTournament_ThrowsTournamentNotFoundException()
+    public async Task CreatePlayerAsync_DefaultLevel_IsOne()
     {
-        // Arrange
-        var request = new CreatePlayerRequest("Sir Galahad");
-        const int nonExistingTournamentId = 9999;
+        var result = await _service.CreatePlayerAsync(1, new CreatePlayerRequest("Squire", KnightClass));
 
-        // Act
-        Func<Task> act = () => _service.AddPlayerAsync(nonExistingTournamentId, request);
-
-        // Assert
-        await act.Should().ThrowAsync<TournamentNotFoundException>()
-                 .Where(e => e.TournamentId == nonExistingTournamentId);
-    }
-
-    [Fact]
-    public async Task AddPlayerAsync_WithClassAndLevel_StoresChampionAttributes()
-    {
-        var request = new CreatePlayerRequest("Sir Galahad", ClassId: 1, Level: 4);
-
-        var result = await _service.AddPlayerAsync(1, request);
-
-        result.ClassId.Should().Be(1);
-        result.Level.Should().Be(4);
-    }
-
-    [Fact]
-    public async Task AddPlayerAsync_NoClass_DefaultsToNoClassAndLevelOne()
-    {
-        var result = await _service.AddPlayerAsync(1, new CreatePlayerRequest("Squire"));
-
-        result.ClassId.Should().BeNull();
         result.Level.Should().Be(1);
     }
 
     [Fact]
-    public async Task AddPlayerAsync_UnknownClass_ThrowsClassNotFoundException()
+    public async Task CreatePlayerAsync_EmptyName_ThrowsArgumentException()
     {
-        var request = new CreatePlayerRequest("Sir Galahad", ClassId: 999, Level: 1);
+        Func<Task> act = () => _service.CreatePlayerAsync(1, new CreatePlayerRequest("", KnightClass));
 
-        Func<Task> act = () => _service.AddPlayerAsync(1, request);
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task CreatePlayerAsync_UnknownClass_ThrowsClassNotFoundException()
+    {
+        Func<Task> act = () => _service.CreatePlayerAsync(1, new CreatePlayerRequest("Ghost", ClassId: 999));
 
         await act.Should().ThrowAsync<ClassNotFoundException>()
                  .Where(e => e.ClassId == 999);
     }
 
     [Fact]
-    public async Task AddPlayerAsync_LevelBelowOne_ThrowsArgumentException()
+    public async Task CreatePlayerAsync_LevelBelowOne_ThrowsArgumentException()
     {
-        var request = new CreatePlayerRequest("Sir Galahad", ClassId: 1, Level: 0);
-
-        Func<Task> act = () => _service.AddPlayerAsync(1, request);
+        Func<Task> act = () => _service.CreatePlayerAsync(1, new CreatePlayerRequest("Sir Galahad", KnightClass, Level: 0));
 
         await act.Should().ThrowAsync<ArgumentException>();
-    }
-
-    [Fact]
-    public async Task AddPlayerAsync_TournamentCreatedAtRuntime_IsAccepted()
-    {
-        // Regression: players must be addable to any tournament that actually exists,
-        // not just the hardcoded seed — the service validates against the tournament store.
-        var service = new PlayerService();
-        var created = await new TournamentService().CreateTournamentAsync(new CreateTournamentRequest("Grand Tournoi"));
-
-        var player = await service.AddPlayerAsync(created.Id, new CreatePlayerRequest("Newcomer"));
-
-        player.TournamentId.Should().Be(created.Id);
     }
 
     // ── GetPlayerAsync ─────────────────────────────────────────
 
     [Fact]
-    public async Task GetPlayerAsync_ExistingId_ReturnsPlayerResponse()
+    public async Task GetPlayerAsync_ExistingId_ReturnsChampion()
     {
-        // Arrange
-        var created = await _service.AddPlayerAsync(1, new CreatePlayerRequest("Sir Galahad"));
+        var created = await _service.CreatePlayerAsync(1, new CreatePlayerRequest("Sir Galahad", KnightClass));
 
-        // Act
         var result = await _service.GetPlayerAsync(created.Id);
 
-        // Assert
         result.Id.Should().Be(created.Id);
         result.Name.Should().Be("Sir Galahad");
     }
@@ -117,105 +74,33 @@ public class PlayerServiceTests
     [Fact]
     public async Task GetPlayerAsync_NonExistingId_ThrowsPlayerNotFoundException()
     {
-        // Arrange
-        const int nonExistingId = 9999;
+        Func<Task> act = () => _service.GetPlayerAsync(9999);
 
-        // Act
-        Func<Task> act = () => _service.GetPlayerAsync(nonExistingId);
-
-        // Assert
         await act.Should().ThrowAsync<PlayerNotFoundException>()
-                 .Where(e => e.PlayerId == nonExistingId);
+                 .Where(e => e.PlayerId == 9999);
     }
 
-    // ── GetTournamentPlayersAsync ──────────────────────────────
+    // ── GetUserPlayersAsync ────────────────────────────────────
 
     [Fact]
-    public async Task GetTournamentPlayersAsync_AfterAddingTwo_ReturnsBothPlayers()
+    public async Task GetUserPlayersAsync_ReturnsOnlyThatUsersChampions()
     {
-        // Arrange
-        await _service.AddPlayerAsync(1, new CreatePlayerRequest("Sir Galahad"));
-        await _service.AddPlayerAsync(1, new CreatePlayerRequest("Dame Morgane"));
+        var knight = await _service.CreatePlayerAsync(42, new CreatePlayerRequest("Knight", 1));
+        var mage   = await _service.CreatePlayerAsync(42, new CreatePlayerRequest("Mage", 2));
+        await _service.CreatePlayerAsync(99, new CreatePlayerRequest("Someone Else", 3));
 
-        // Act
-        var result = await _service.GetTournamentPlayersAsync(tournamentId: 1);
+        var result = (await _service.GetUserPlayersAsync(42)).ToList();
 
-        // Assert
-        result.Should().HaveCountGreaterThanOrEqualTo(2);
-        result.Select(p => p.Name).Should().Contain("Sir Galahad").And.Contain("Dame Morgane");
-    }
-
-    [Fact]
-    public async Task GetTournamentPlayersAsync_NonExistingTournament_ThrowsTournamentNotFoundException()
-    {
-        // Act
-        Func<Task> act = () => _service.GetTournamentPlayersAsync(9999);
-
-        // Assert
-        await act.Should().ThrowAsync<TournamentNotFoundException>()
-                 .Where(e => e.TournamentId == 9999);
-    }
-
-    // ── DisqualifyPlayerAsync ──────────────────────────────────
-
-    [Fact]
-    public async Task DisqualifyPlayerAsync_ActivePlayer_SetsIsDisqualifiedTrue()
-    {
-        // Arrange
-        var created = await _service.AddPlayerAsync(1, new CreatePlayerRequest("Sir Galahad"));
-
-        // Act
-        var result = await _service.DisqualifyPlayerAsync(created.Id);
-
-        // Assert
-        result.IsDisqualified.Should().BeTrue();
-        result.Id.Should().Be(created.Id);
-    }
-
-    // ── AddPenaltyAsync ────────────────────────────────────────
-
-    [Fact]
-    public async Task AddPenaltyAsync_ValidPenalty_AccumulatesPenaltyPoints()
-    {
-        // Arrange
-        var created = await _service.AddPlayerAsync(1, new CreatePlayerRequest("Sir Galahad"));
-        var request = new AddPenaltyRequest(PenaltyPoints: 3);
-
-        // Act
-        var result = await _service.AddPenaltyAsync(created.Id, request);
-
-        // Assert
-        result.PenaltyPoints.Should().Be(3);
+        result.Should().OnlyContain(p => p.UserId == 42);
+        result.Select(p => p.Name).Should().Contain(new[] { "Knight", "Mage" });
+        result.Should().NotContain(p => p.Name == "Someone Else");
     }
 
     [Fact]
-    public async Task AddPenaltyAsync_NegativePenalty_ThrowsArgumentException()
+    public async Task GetUserPlayersAsync_UserWithNoChampions_ReturnsEmpty()
     {
-        // Arrange
-        var created = await _service.AddPlayerAsync(1, new CreatePlayerRequest("Sir Galahad"));
-        var request = new AddPenaltyRequest(PenaltyPoints: -1);
+        var result = await _service.GetUserPlayersAsync(123456);
 
-        // Act
-        Func<Task> act = () => _service.AddPenaltyAsync(created.Id, request);
-
-        // Assert
-        await act.Should().ThrowAsync<ArgumentException>()
-                 .WithMessage("*PenaltyPoints*");
-    }
-
-    [Fact]
-    public async Task DisqualifyPlayerAsync_NonExistingPlayer_ThrowsPlayerNotFoundException()
-    {
-        Func<Task> act = () => _service.DisqualifyPlayerAsync(9999);
-
-        await act.Should().ThrowAsync<PlayerNotFoundException>();
-    }
-
-    [Fact]
-    public async Task AddPenaltyAsync_NonExistingPlayer_ThrowsPlayerNotFoundException()
-    {
-        Func<Task> act = () => _service.AddPenaltyAsync(9999, new AddPenaltyRequest(1));
-
-        await act.Should().ThrowAsync<PlayerNotFoundException>();
+        result.Should().BeEmpty();
     }
 }

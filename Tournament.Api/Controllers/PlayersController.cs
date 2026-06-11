@@ -1,3 +1,6 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Tournament.Api.Contracts;
 using Tournament.Api.DTOs.Requests;
@@ -7,6 +10,7 @@ using Tournament.Api.Exceptions;
 namespace Tournament.Api.Controllers;
 
 [ApiController]
+[Route("api/players")]
 public class PlayersController : ControllerBase
 {
     private readonly IPlayerService _playerService;
@@ -16,98 +20,55 @@ public class PlayersController : ControllerBase
         _playerService = playerService;
     }
 
-    /// <summary>Add a player to a tournament.</summary>
-    [HttpPost("api/tournaments/{tournamentId:int}/players")]
+    /// <summary>Create a champion owned by the current user.</summary>
+    [HttpPost]
+    [Authorize]
     [ProducesResponseType(typeof(PlayerResponse), 201)]
     [ProducesResponseType(400)]
+    [ProducesResponseType(401)]
     [ProducesResponseType(404)]
-    public async Task<IActionResult> AddPlayer(int tournamentId, [FromBody] CreatePlayerRequest request)
+    public async Task<IActionResult> CreatePlayer([FromBody] CreatePlayerRequest request)
     {
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
         try
         {
-            var created = await _playerService.AddPlayerAsync(tournamentId, request);
+            var created = await _playerService.CreatePlayerAsync(userId, request);
             return CreatedAtAction(nameof(GetPlayer), new { id = created.Id }, created);
         }
-        catch (TournamentNotFoundException ex)
-        {
-            return NotFound(ex.Message);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
+        catch (ClassNotFoundException ex) { return NotFound(ex.Message); }
+        catch (ArgumentException ex)      { return BadRequest(ex.Message); }
     }
 
-    /// <summary>List all players in a tournament.</summary>
-    [HttpGet("api/tournaments/{tournamentId:int}/players")]
-    [ProducesResponseType(typeof(IEnumerable<PlayerResponse>), 200)]
-    [ProducesResponseType(404)]
-    public async Task<IActionResult> GetTournamentPlayers(int tournamentId)
-    {
-        try
-        {
-            var players = await _playerService.GetTournamentPlayersAsync(tournamentId);
-            return Ok(players);
-        }
-        catch (TournamentNotFoundException ex)
-        {
-            return NotFound(ex.Message);
-        }
-    }
-
-    /// <summary>Get a player by id.</summary>
-    [HttpGet("api/players/{id:int}")]
+    /// <summary>Get a champion by id.</summary>
+    [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(PlayerResponse), 200)]
     [ProducesResponseType(404)]
     public async Task<IActionResult> GetPlayer(int id)
     {
-        try
-        {
-            var player = await _playerService.GetPlayerAsync(id);
-            return Ok(player);
-        }
-        catch (PlayerNotFoundException ex)
-        {
-            return NotFound(ex.Message);
-        }
+        try { return Ok(await _playerService.GetPlayerAsync(id)); }
+        catch (PlayerNotFoundException ex) { return NotFound(ex.Message); }
     }
 
-    /// <summary>Disqualify a player (score reset to 0).</summary>
-    [HttpPost("api/players/{id:int}/disqualify")]
-    [ProducesResponseType(typeof(PlayerResponse), 200)]
-    [ProducesResponseType(404)]
-    public async Task<IActionResult> DisqualifyPlayer(int id)
+    /// <summary>List the current user's champions.</summary>
+    [HttpGet("me")]
+    [Authorize]
+    [ProducesResponseType(typeof(IEnumerable<PlayerResponse>), 200)]
+    [ProducesResponseType(401)]
+    public async Task<IActionResult> GetMyPlayers()
     {
-        try
-        {
-            var player = await _playerService.DisqualifyPlayerAsync(id);
-            return Ok(player);
-        }
-        catch (PlayerNotFoundException ex)
-        {
-            return NotFound(ex.Message);
-        }
+        if (!TryGetUserId(out var userId))
+            return Unauthorized();
+
+        return Ok(await _playerService.GetUserPlayersAsync(userId));
     }
 
-    /// <summary>Add penalty points to a player.</summary>
-    [HttpPatch("api/players/{id:int}/penalties")]
-    [ProducesResponseType(typeof(PlayerResponse), 200)]
-    [ProducesResponseType(400)]
-    [ProducesResponseType(404)]
-    public async Task<IActionResult> AddPenalty(int id, [FromBody] AddPenaltyRequest request)
+    private bool TryGetUserId(out int userId)
     {
-        try
-        {
-            var player = await _playerService.AddPenaltyAsync(id, request);
-            return Ok(player);
-        }
-        catch (PlayerNotFoundException ex)
-        {
-            return NotFound(ex.Message);
-        }
-        catch (ArgumentException ex)
-        {
-            return BadRequest(ex.Message);
-        }
+        userId = 0;
+        var sub = User.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+               ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        return sub is not null && int.TryParse(sub, out userId);
     }
 }

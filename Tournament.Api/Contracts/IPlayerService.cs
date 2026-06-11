@@ -3,11 +3,10 @@ using Tournament.Api.DTOs.Responses;
 
 namespace Tournament.Api.Contracts;
 
+/// <summary>Champions owned by users. A champion is independent of any tournament.</summary>
 public interface IPlayerService
 {
-    Task<PlayerResponse> AddPlayerAsync(int tournamentId, CreatePlayerRequest request);
+    Task<PlayerResponse> CreatePlayerAsync(int userId, CreatePlayerRequest request);
     Task<PlayerResponse> GetPlayerAsync(int id);
-    Task<IEnumerable<PlayerResponse>> GetTournamentPlayersAsync(int tournamentId);
-    Task<PlayerResponse> DisqualifyPlayerAsync(int id);
-    Task<PlayerResponse> AddPenaltyAsync(int id, AddPenaltyRequest request);
+    Task<IEnumerable<PlayerResponse>> GetUserPlayersAsync(int userId);
 }

@@ -119,11 +119,7 @@ public class DuelCombatService : IDuelCombatService
     }
 
     private static CombatantSpec ToSpec(PlayerResponse p)
-    {
-        if (p.ClassId is null)
-            throw new InvalidCombatActionException($"Player {p.Id} ({p.Name}) has no class assigned and cannot fight.");
-        return new CombatantSpec(p.Name, p.ClassId.Value, p.Level);
-    }
+        => new(p.Name, p.ClassId, p.Level);
 
     private static DuelCombatResponse Map(DuelResponse duel, CombatResponse combat)
     {

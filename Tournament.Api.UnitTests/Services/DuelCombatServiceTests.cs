@@ -30,9 +30,9 @@ public class DuelCombatServiceTests
               .ReturnsAsync(() => _duel);
         _duels.Setup(d => d.EndDuelAsync(It.IsAny<int>(), It.IsAny<EndDuelRequest>())).ReturnsAsync(() => _duel);
 
-        // Player 1 = Knight Lv2, Player 2 = Berserker Lv1.
-        _players.Setup(p => p.GetPlayerAsync(1)).ReturnsAsync(new PlayerResponse(1, 1, "Arthur",  false, 0, 1, 2));
-        _players.Setup(p => p.GetPlayerAsync(2)).ReturnsAsync(new PlayerResponse(2, 1, "Mordred", false, 0, 5, 1));
+        // Player 1 = Knight Lv2, Player 2 = Berserker Lv1 (PlayerResponse: Id, UserId, Name, ClassId, Level).
+        _players.Setup(p => p.GetPlayerAsync(1)).ReturnsAsync(new PlayerResponse(1, 1, "Arthur",  1, 2));
+        _players.Setup(p => p.GetPlayerAsync(2)).ReturnsAsync(new PlayerResponse(2, 1, "Mordred", 5, 1));
     }
 
     private static CombatResponse Combat(int id, string status, int? winner, int turn)
@@ -69,17 +69,6 @@ public class DuelCombatServiceTests
         _combat.Verify(c => c.StartCombatAsync(It.Is<CreateCombatRequest>(r =>
             r.Champion1.Name == "Arthur"  && r.Champion1.ClassId == 1 && r.Champion1.Level == 2 &&
             r.Champion2.Name == "Mordred" && r.Champion2.ClassId == 5 && r.Champion2.Level == 1)), Times.Once);
-    }
-
-    [Fact]
-    public async Task StartFromDuelAsync_PlayerWithoutClass_ThrowsInvalidCombatActionException()
-    {
-        _duel = new(7002, 1, 1, 2, null, 1, DateTime.UtcNow, null);
-        _players.Setup(p => p.GetPlayerAsync(1)).ReturnsAsync(new PlayerResponse(1, 1, "NoClass", false, 0, null, 1));
-
-        Func<Task> act = () => _service.StartFromDuelAsync(7002);
-
-        await act.Should().ThrowAsync<InvalidCombatActionException>();
     }
 
     [Fact]

@@ -60,6 +60,7 @@ builder.Services.AddCors(options =>
 // ── Services (Singleton: the in-memory stores must persist across requests) ───
 builder.Services.AddSingleton<ITournamentService, TournamentService>();
 builder.Services.AddSingleton<IPlayerService, PlayerService>();
+builder.Services.AddSingleton<ITournamentPlayerService, TournamentPlayerService>();
 builder.Services.AddSingleton<IDuelService, DuelService>();
 builder.Services.AddSingleton<IScoreService, ScoreService>();
 builder.Services.AddSingleton<IReplayService, ReplayService>();

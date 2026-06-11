@@ -15,18 +15,18 @@ public class ScoresController : ControllerBase
         _scoreService = scoreService;
     }
 
-    /// <summary>Get the calculated score of a specific player.</summary>
-    [HttpGet("api/players/{playerId:int}/score")]
+    /// <summary>Get a champion's score within a tournament.</summary>
+    [HttpGet("api/tournaments/{tournamentId:int}/players/{playerId:int}/score")]
     [ProducesResponseType(typeof(PlayerScoreResponse), 200)]
     [ProducesResponseType(404)]
-    public async Task<IActionResult> GetPlayerScore(int playerId)
+    public async Task<IActionResult> GetPlayerScore(int tournamentId, int playerId)
     {
         try
         {
-            var score = await _scoreService.GetPlayerScoreAsync(playerId);
+            var score = await _scoreService.GetPlayerScoreAsync(tournamentId, playerId);
             return Ok(score);
         }
-        catch (PlayerNotFoundException ex)
+        catch (RegistrationNotFoundException ex)
         {
             return NotFound(ex.Message);
         }

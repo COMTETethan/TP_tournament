@@ -1,102 +1,48 @@
 using Tournament.Api.Contracts;
 using Tournament.Api.DTOs.Responses;
-using Tournament.Api.Exceptions;
 using System.Collections.Generic;
 using System.Linq;
 
 namespace Tournament.Api.Services;
 
+/// <summary>
+/// Computes tournament scores. A champion is scored within a tournament from that tournament's
+/// duels and its registration state (3 pts/win, +1/draw, −1/loss, minus penalties, floored at 0;
+/// a disqualified registration scores 0).
+/// </summary>
 public class ScoreService : IScoreService
 {
-    private readonly IPlayerService _playerService;
+    private readonly ITournamentPlayerService _registrations;
     private readonly IDuelService _duelService;
     private readonly ITournamentService _tournamentService;
 
     public ScoreService()
-    {
-        // For unit tests using in-memory services
-        _playerService = new PlayerService();
-        _duelService = new DuelService();
-        _tournamentService = new TournamentService();
-    }
+        : this(new TournamentPlayerService(), new DuelService(), new TournamentService()) { }
 
-    public ScoreService(IPlayerService playerService, IDuelService duelService, ITournamentService tournamentService)
+    public ScoreService(ITournamentPlayerService registrations, IDuelService duelService, ITournamentService tournamentService)
     {
-        _playerService = playerService;
+        _registrations = registrations;
         _duelService = duelService;
         _tournamentService = tournamentService;
     }
 
-    public async Task<PlayerScoreResponse> GetPlayerScoreAsync(int playerId)
+    public async Task<PlayerScoreResponse> GetPlayerScoreAsync(int tournamentId, int playerId)
     {
-        // Verify player exists
-        var player = await _playerService.GetPlayerAsync(playerId);
-
-        if (player.IsDisqualified)
-            return new PlayerScoreResponse(playerId, player.Name, 0, true);
-
-        // Calculate score from duel outcomes
-        int wins = 0;
-        int losses = 0;
-        int draws = 0;
-
-        // Get all duels to find player's matches (simplified: assume tournaments share player data)
-        // In real scenario, we'd query by player in a specific tournament
-        // For now, iterate through duels where playerId was a participant
-        var allDuels = new List<DuelResponse>();
-        try
-        {
-            // Try to get from tournament 1 (tests use this)
-            var duels = await _duelService.GetTournamentDuelsAsync(player.TournamentId);
-            allDuels.AddRange(duels);
-        }
-        catch
-        {
-            // If tournament not found, no duels
-        }
-
-        foreach (var duel in allDuels)
-        {
-            if (duel.Outcome is null) continue;
-
-            if (duel.Player1Id == playerId)
-            {
-                if (duel.Outcome == "PLAYER1_WIN") wins++;
-                else if (duel.Outcome == "PLAYER2_WIN") losses++;
-                else if (duel.Outcome == "DRAW") draws++;
-            }
-            else if (duel.Player2Id == playerId)
-            {
-                if (duel.Outcome == "PLAYER2_WIN") wins++;
-                else if (duel.Outcome == "PLAYER1_WIN") losses++;
-                else if (duel.Outcome == "DRAW") draws++;
-            }
-        }
-
-        // Score calculation: 3 points per win, -1 per loss, penalty points
-        int baseScore = (wins * 3) + (draws * 1) - losses;
-        int penalties = player.PenaltyPoints;
-        int finalScore = Math.Max(0, baseScore - penalties);
-
-        return new PlayerScoreResponse(playerId, player.Name, finalScore, false);
+        // Throws RegistrationNotFoundException if the champion is not in this tournament.
+        var registration = await _registrations.GetRegistrationAsync(tournamentId, playerId);
+        return await ScoreForAsync(tournamentId, registration);
     }
 
     public async Task<RankingResponse> GetTournamentRankingAsync(int tournamentId)
     {
-        // Verify tournament exists
-        await _tournamentService.GetTournamentAsync(tournamentId);
+        await _tournamentService.GetTournamentAsync(tournamentId); // throws TournamentNotFoundException
 
-        // Get all players in tournament
-        var players = await _playerService.GetTournamentPlayersAsync(tournamentId);
+        var registrations = await _registrations.GetTournamentPlayersAsync(tournamentId);
+
         var scores = new List<PlayerScoreResponse>();
+        foreach (var registration in registrations)
+            scores.Add(await ScoreForAsync(tournamentId, registration));
 
-        foreach (var player in players)
-        {
-            var score = await GetPlayerScoreAsync(player.Id);
-            scores.Add(score);
-        }
-
-        // Sort by score descending
         var sorted = scores.OrderByDescending(s => s.FinalScore).ToList();
         return new RankingResponse(tournamentId, sorted.AsReadOnly());
     }
@@ -107,5 +53,36 @@ public class ScoreService : IScoreService
         if (ranking.Ranking.Count == 0)
             throw new InvalidOperationException("No players in tournament.");
         return ranking.Ranking.First();
+    }
+
+    private async Task<PlayerScoreResponse> ScoreForAsync(int tournamentId, RegistrationResponse registration)
+    {
+        if (registration.IsDisqualified)
+            return new PlayerScoreResponse(registration.PlayerId, registration.PlayerName, 0, true);
+
+        var duels = await _duelService.GetTournamentDuelsAsync(tournamentId);
+
+        int wins = 0, losses = 0, draws = 0;
+        foreach (var duel in duels)
+        {
+            if (duel.Outcome is null) continue;
+
+            if (duel.Player1Id == registration.PlayerId)
+            {
+                if (duel.Outcome == "PLAYER1_WIN") wins++;
+                else if (duel.Outcome == "PLAYER2_WIN") losses++;
+                else if (duel.Outcome == "DRAW") draws++;
+            }
+            else if (duel.Player2Id == registration.PlayerId)
+            {
+                if (duel.Outcome == "PLAYER2_WIN") wins++;
+                else if (duel.Outcome == "PLAYER1_WIN") losses++;
+                else if (duel.Outcome == "DRAW") draws++;
+            }
+        }
+
+        int baseScore = (wins * 3) + (draws * 1) - losses;
+        int finalScore = Math.Max(0, baseScore - registration.PenaltyPoints);
+        return new PlayerScoreResponse(registration.PlayerId, registration.PlayerName, finalScore, false);
     }
 }

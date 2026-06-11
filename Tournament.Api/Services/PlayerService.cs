@@ -7,6 +7,7 @@ using System.Linq;
 
 namespace Tournament.Api.Services;
 
+/// <summary>Champions owned by users. A champion carries a class and a level, not a tournament.</summary>
 public class PlayerService : IPlayerService
 {
     private readonly List<PlayerEntity> _players;
@@ -14,33 +15,31 @@ public class PlayerService : IPlayerService
 
     public PlayerService()
     {
+        // Two seeded champions owned by user 1 (a Knight and a Mage).
         _players = new List<PlayerEntity>
         {
-            new() { Id = 1, TournamentId = 1, Name = "Player One", IsDisqualified = false, PenaltyPoints = 0, ClassId = 1, Level = 1 },
-            new() { Id = 2, TournamentId = 1, Name = "Player Two", IsDisqualified = true,  PenaltyPoints = 0, ClassId = 2, Level = 1 }
+            new() { Id = 1, UserId = 1, Name = "Player One", ClassId = 1, Level = 1 },
+            new() { Id = 2, UserId = 1, Name = "Player Two", ClassId = 2, Level = 1 }
         };
         _nextId = 3;
     }
 
-    public Task<PlayerResponse> AddPlayerAsync(int tournamentId, CreatePlayerRequest request)
+    public Task<PlayerResponse> CreatePlayerAsync(int userId, CreatePlayerRequest request)
     {
-        // Validate against the real tournament store (created tournaments are accepted, not just #1).
-        if (!TournamentService.Exists(tournamentId))
-            throw new TournamentNotFoundException(tournamentId);
+        if (string.IsNullOrWhiteSpace(request.Name))
+            throw new ArgumentException("Name cannot be empty.", nameof(request.Name));
 
         if (request.Level < 1)
             throw new ArgumentException("Level must be at least 1.", nameof(request.Level));
 
-        if (request.ClassId is int classId && !ClassCatalog.ClassExists(classId))
-            throw new ClassNotFoundException(classId);
+        if (!ClassCatalog.ClassExists(request.ClassId))
+            throw new ClassNotFoundException(request.ClassId);
 
         var entity = new PlayerEntity
         {
             Id = _nextId++,
-            TournamentId = tournamentId,
+            UserId = userId,
             Name = request.Name,
-            IsDisqualified = false,
-            PenaltyPoints = 0,
             ClassId = request.ClassId,
             Level = request.Level
         };
@@ -56,46 +55,19 @@ public class PlayerService : IPlayerService
         return Task.FromResult(Map(found));
     }
 
-    public Task<IEnumerable<PlayerResponse>> GetTournamentPlayersAsync(int tournamentId)
-    {
-        if (!TournamentService.Exists(tournamentId))
-            throw new TournamentNotFoundException(tournamentId);
-
-        var results = _players.Where(p => p.TournamentId == tournamentId).Select(Map).ToList();
-        return Task.FromResult<IEnumerable<PlayerResponse>>(results);
-    }
-
-    public Task<PlayerResponse> DisqualifyPlayerAsync(int id)
-    {
-        var p = _players.FirstOrDefault(x => x.Id == id);
-        if (p is null) throw new PlayerNotFoundException(id);
-        p.IsDisqualified = true;
-        p.PenaltyPoints = 0;
-        return Task.FromResult(Map(p));
-    }
-
-    public Task<PlayerResponse> AddPenaltyAsync(int id, AddPenaltyRequest request)
-    {
-        if (request.PenaltyPoints < 0)
-            throw new ArgumentException("PenaltyPoints must be non-negative.", nameof(request.PenaltyPoints));
-
-        var p = _players.FirstOrDefault(x => x.Id == id);
-        if (p is null) throw new PlayerNotFoundException(id);
-        p.PenaltyPoints += request.PenaltyPoints;
-        return Task.FromResult(Map(p));
-    }
+    public Task<IEnumerable<PlayerResponse>> GetUserPlayersAsync(int userId)
+        => Task.FromResult<IEnumerable<PlayerResponse>>(
+            _players.Where(p => p.UserId == userId).Select(Map).ToList());
 
     private static PlayerResponse Map(PlayerEntity e)
-        => new(e.Id, e.TournamentId, e.Name, e.IsDisqualified, e.PenaltyPoints, e.ClassId, e.Level);
+        => new(e.Id, e.UserId, e.Name, e.ClassId, e.Level);
 
     private class PlayerEntity
     {
         public int Id { get; set; }
-        public int TournamentId { get; set; }
+        public int UserId { get; set; }
         public string Name { get; set; } = string.Empty;
-        public bool IsDisqualified { get; set; }
-        public int PenaltyPoints { get; set; }
-        public int? ClassId { get; set; }
+        public int ClassId { get; set; }
         public int Level { get; set; } = 1;
     }
 }

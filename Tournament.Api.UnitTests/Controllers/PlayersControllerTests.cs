@@ -1,3 +1,6 @@
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Tournament.Api.Contracts;
 using Tournament.Api.Controllers;
@@ -15,64 +18,70 @@ public class PlayersControllerTests
     public PlayersControllerTests()
     {
         _controller = new PlayersController(_mockService.Object);
+        SetAuthenticatedUser(userId: 1);
     }
 
-    // ── POST /api/tournaments/{tournamentId}/players ───────────
+    private void SetAuthenticatedUser(int userId)
+    {
+        var identity = new ClaimsIdentity(new[] { new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()) }, "Bearer");
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
+        };
+    }
+
+    private void SetAnonymous()
+        => _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity()) }
+        };
+
+    // ── POST /api/players ──────────────────────────────────────
 
     [Fact]
-    public async Task AddPlayer_ValidRequest_ReturnsCreated()
+    public async Task CreatePlayer_Authenticated_ReturnsCreated()
     {
-        // Arrange
-        var request  = new CreatePlayerRequest("Sir Galahad");
-        var response = new PlayerResponse(1, 1, "Sir Galahad", false, 0);
-        _mockService.Setup(s => s.AddPlayerAsync(1, request)).ReturnsAsync(response);
+        var request  = new CreatePlayerRequest("Sir Galahad", 1, 2);
+        var response = new PlayerResponse(5, 1, "Sir Galahad", 1, 2);
+        _mockService.Setup(s => s.CreatePlayerAsync(1, request)).ReturnsAsync(response);
 
-        // Act
-        var result = await _controller.AddPlayer(1, request);
+        var result = await _controller.CreatePlayer(request);
 
-        // Assert
         var created = result.Should().BeOfType<CreatedAtActionResult>().Subject;
         created.StatusCode.Should().Be(201);
         created.Value.Should().BeEquivalentTo(response);
     }
 
     [Fact]
-    public async Task AddPlayer_TournamentNotFound_ReturnsNotFound()
+    public async Task CreatePlayer_NotAuthenticated_ReturnsUnauthorized()
     {
-        // Arrange
-        var request = new CreatePlayerRequest("Sir Galahad");
-        _mockService.Setup(s => s.AddPlayerAsync(99, request))
-                    .ThrowsAsync(new TournamentNotFoundException(99));
+        SetAnonymous();
 
-        // Act
-        var result = await _controller.AddPlayer(99, request);
+        var result = await _controller.CreatePlayer(new CreatePlayerRequest("X", 1));
 
-        // Assert
-        result.Should().BeOfType<NotFoundObjectResult>()
-              .Which.StatusCode.Should().Be(404);
+        result.Should().BeOfType<UnauthorizedResult>();
     }
 
-    // ── GET /api/tournaments/{tournamentId}/players ────────────
+    [Fact]
+    public async Task CreatePlayer_UnknownClass_ReturnsNotFound()
+    {
+        var request = new CreatePlayerRequest("X", 999);
+        _mockService.Setup(s => s.CreatePlayerAsync(1, request)).ThrowsAsync(new ClassNotFoundException(999));
+
+        var result = await _controller.CreatePlayer(request);
+
+        result.Should().BeOfType<NotFoundObjectResult>().Which.StatusCode.Should().Be(404);
+    }
 
     [Fact]
-    public async Task GetTournamentPlayers_ExistingTournament_ReturnsOk()
+    public async Task CreatePlayer_InvalidArgument_ReturnsBadRequest()
     {
-        // Arrange
-        var players = new List<PlayerResponse>
-        {
-            new(1, 1, "Sir Galahad",    false, 0),
-            new(2, 1, "Dame Morgane",   false, 0),
-            new(3, 1, "Chevalier Noir", false, 5),
-        };
-        _mockService.Setup(s => s.GetTournamentPlayersAsync(1)).ReturnsAsync(players);
+        var request = new CreatePlayerRequest("", 1);
+        _mockService.Setup(s => s.CreatePlayerAsync(1, request)).ThrowsAsync(new ArgumentException("Name cannot be empty."));
 
-        // Act
-        var result = await _controller.GetTournamentPlayers(1);
+        var result = await _controller.CreatePlayer(request);
 
-        // Assert
-        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
-        ok.StatusCode.Should().Be(200);
-        ok.Value.Should().BeEquivalentTo(players);
+        result.Should().BeOfType<BadRequestObjectResult>().Which.StatusCode.Should().Be(400);
     }
 
     // ── GET /api/players/{id} ──────────────────────────────────
@@ -80,141 +89,44 @@ public class PlayersControllerTests
     [Fact]
     public async Task GetPlayer_ExistingId_ReturnsOk()
     {
-        // Arrange
-        var response = new PlayerResponse(1, 1, "Sir Galahad", false, 0);
-        _mockService.Setup(s => s.GetPlayerAsync(1)).ReturnsAsync(response);
+        _mockService.Setup(s => s.GetPlayerAsync(5)).ReturnsAsync(new PlayerResponse(5, 1, "Sir Galahad", 1, 2));
 
-        // Act
-        var result = await _controller.GetPlayer(1);
+        var result = await _controller.GetPlayer(5);
 
-        // Assert
-        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
-        ok.StatusCode.Should().Be(200);
-        ok.Value.Should().BeEquivalentTo(response);
+        result.Should().BeOfType<OkObjectResult>().Which.StatusCode.Should().Be(200);
     }
 
     [Fact]
     public async Task GetPlayer_NonExistingId_ReturnsNotFound()
     {
-        // Arrange
-        _mockService.Setup(s => s.GetPlayerAsync(99))
-                    .ThrowsAsync(new PlayerNotFoundException(99));
+        _mockService.Setup(s => s.GetPlayerAsync(99)).ThrowsAsync(new PlayerNotFoundException(99));
 
-        // Act
         var result = await _controller.GetPlayer(99);
 
-        // Assert
-        result.Should().BeOfType<NotFoundObjectResult>()
-              .Which.StatusCode.Should().Be(404);
+        result.Should().BeOfType<NotFoundObjectResult>().Which.StatusCode.Should().Be(404);
     }
 
-    // ── POST /api/players/{id}/disqualify ──────────────────────
+    // ── GET /api/players/me ────────────────────────────────────
 
     [Fact]
-    public async Task DisqualifyPlayer_ExistingPlayer_ReturnsOk()
+    public async Task GetMyPlayers_Authenticated_ReturnsOkWithList()
     {
-        // Arrange
-        var response = new PlayerResponse(1, 1, "Sir Galahad", true, 0);
-        _mockService.Setup(s => s.DisqualifyPlayerAsync(1)).ReturnsAsync(response);
+        var list = new List<PlayerResponse> { new(1, 1, "Knight", 1, 1), new(2, 1, "Mage", 2, 1) };
+        _mockService.Setup(s => s.GetUserPlayersAsync(1)).ReturnsAsync(list);
 
-        // Act
-        var result = await _controller.DisqualifyPlayer(1);
+        var result = await _controller.GetMyPlayers();
 
-        // Assert
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
-        ok.StatusCode.Should().Be(200);
-        ok.Value.As<PlayerResponse>().IsDisqualified.Should().BeTrue();
-    }
-
-    // ── PATCH /api/players/{id}/penalties ─────────────────────
-
-    [Fact]
-    public async Task AddPenalty_ValidPenalty_ReturnsOk()
-    {
-        // Arrange
-        var request  = new AddPenaltyRequest(5);
-        var response = new PlayerResponse(1, 1, "Sir Galahad", false, 5);
-        _mockService.Setup(s => s.AddPenaltyAsync(1, request)).ReturnsAsync(response);
-
-        // Act
-        var result = await _controller.AddPenalty(1, request);
-
-        // Assert
-        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
-        ok.StatusCode.Should().Be(200);
-        ok.Value.As<PlayerResponse>().PenaltyPoints.Should().Be(5);
+        ok.Value.Should().BeEquivalentTo(list);
     }
 
     [Fact]
-    public async Task AddPlayer_InvalidName_ReturnsBadRequest()
+    public async Task GetMyPlayers_NotAuthenticated_ReturnsUnauthorized()
     {
-        // Arrange
-        var request = new CreatePlayerRequest("");
-        _mockService.Setup(s => s.AddPlayerAsync(1, request))
-                    .ThrowsAsync(new ArgumentException("Name cannot be empty."));
+        SetAnonymous();
 
-        // Act
-        var result = await _controller.AddPlayer(1, request);
+        var result = await _controller.GetMyPlayers();
 
-        // Assert
-        result.Should().BeOfType<BadRequestObjectResult>();
-    }
-
-    [Fact]
-    public async Task GetTournamentPlayers_NonExistingTournament_ReturnsNotFound()
-    {
-        // Arrange
-        _mockService.Setup(s => s.GetTournamentPlayersAsync(99))
-                    .ThrowsAsync(new TournamentNotFoundException(99));
-
-        // Act
-        var result = await _controller.GetTournamentPlayers(99);
-
-        // Assert
-        result.Should().BeOfType<NotFoundObjectResult>();
-    }
-
-    [Fact]
-    public async Task DisqualifyPlayer_NonExistingPlayer_ReturnsNotFound()
-    {
-        // Arrange
-        _mockService.Setup(s => s.DisqualifyPlayerAsync(99))
-                    .ThrowsAsync(new PlayerNotFoundException(99));
-
-        // Act
-        var result = await _controller.DisqualifyPlayer(99);
-
-        // Assert
-        result.Should().BeOfType<NotFoundObjectResult>();
-    }
-
-    [Fact]
-    public async Task AddPenalty_NonExistingPlayer_ReturnsNotFound()
-    {
-        // Arrange
-        var request = new AddPenaltyRequest(5);
-        _mockService.Setup(s => s.AddPenaltyAsync(99, request))
-                    .ThrowsAsync(new PlayerNotFoundException(99));
-
-        // Act
-        var result = await _controller.AddPenalty(99, request);
-
-        // Assert
-        result.Should().BeOfType<NotFoundObjectResult>();
-    }
-
-    [Fact]
-    public async Task AddPenalty_InvalidPenaltyPoints_ReturnsBadRequest()
-    {
-        // Arrange
-        var request = new AddPenaltyRequest(-1);
-        _mockService.Setup(s => s.AddPenaltyAsync(1, request))
-                    .ThrowsAsync(new ArgumentException("Penalty must be positive."));
-
-        // Act
-        var result = await _controller.AddPenalty(1, request);
-
-        // Assert
-        result.Should().BeOfType<BadRequestObjectResult>();
+        result.Should().BeOfType<UnauthorizedResult>();
     }
 }

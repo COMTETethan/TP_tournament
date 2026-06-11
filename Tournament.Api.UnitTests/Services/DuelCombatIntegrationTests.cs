@@ -5,9 +5,9 @@ using Tournament.Api.Services;
 namespace Tournament.Api.UnitTests.Services;
 
 /// <summary>
-/// End-to-end integration across the real services: create two champions, pair them in a duel,
-/// fight the duel as a combat, and verify the result flows back into the tournament — the duel
-/// gets an outcome and duration, and the score derives from it.
+/// End-to-end integration across the real services: create two champions, register them in a
+/// tournament, pair them in a duel, fight it as a combat, and verify the result flows back — the
+/// duel gets an outcome and duration, and the score derives from it.
 /// </summary>
 public class DuelCombatIntegrationTests
 {
@@ -15,16 +15,19 @@ public class DuelCombatIntegrationTests
     public async Task FightingADuel_WritesOutcomeDurationAndScore()
     {
         // ── Arrange: real services sharing the same player & duel stores ───────────
-        var players      = new PlayerService();
-        var duels        = new DuelService();
-        var combat       = new CombatService();
-        var tournaments  = new TournamentService();
-        var orchestrator = new DuelCombatService(duels, players, combat);
-        var scores       = new ScoreService(players, duels, tournaments);
+        var players       = new PlayerService();
+        var duels         = new DuelService();
+        var combat        = new CombatService();
+        var tournaments   = new TournamentService();
+        var registrations = new TournamentPlayerService(players);
+        var orchestrator  = new DuelCombatService(duels, players, combat);
+        var scores        = new ScoreService(registrations, duels, tournaments);
 
-        // Two champions in tournament 1.
-        var hero = await players.AddPlayerAsync(1, new CreatePlayerRequest("Arthur",  ClassId: 1 /* Knight */,    Level: 2));
-        var foe  = await players.AddPlayerAsync(1, new CreatePlayerRequest("Mordred", ClassId: 5 /* Berserker */, Level: 1));
+        // Two champions owned by user 1, registered in tournament 1.
+        var hero = await players.CreatePlayerAsync(1, new CreatePlayerRequest("Arthur",  ClassId: 1 /* Knight */,    Level: 2));
+        var foe  = await players.CreatePlayerAsync(1, new CreatePlayerRequest("Mordred", ClassId: 5 /* Berserker */, Level: 1));
+        await registrations.RegisterAsync(1, hero.Id);
+        await registrations.RegisterAsync(1, foe.Id);
 
         // A duel pairing them.
         var duel = await duels.CreateDuelAsync(1, new CreateDuelRequest(hero.Id, foe.Id, DuelOrder: 1));
@@ -53,8 +56,8 @@ public class DuelCombatIntegrationTests
         var winnerId = state.WinnerPlayerId!.Value;
         var loserId  = winnerId == hero.Id ? foe.Id : hero.Id;
 
-        (await scores.GetPlayerScoreAsync(winnerId)).FinalScore.Should().Be(3);
-        (await scores.GetPlayerScoreAsync(loserId)).FinalScore.Should().Be(0);
+        (await scores.GetPlayerScoreAsync(1, winnerId)).FinalScore.Should().Be(3);
+        (await scores.GetPlayerScoreAsync(1, loserId)).FinalScore.Should().Be(0);
 
         // ── Assert: the recorded replay is available for this duel ─────────────────
         var replay = await orchestrator.GetReplayByDuelAsync(duel.Id);
