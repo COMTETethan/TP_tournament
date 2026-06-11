@@ -158,4 +158,94 @@ public class ObjectiveServiceTests
         await act.Should().ThrowAsync<ObjectiveNotFoundException>()
                  .Where(e => e.ObjectiveId == 9999);
     }
+
+    // ── Period-aware completions (DAILY / WEEKLY) ──────────────
+
+    [Fact]
+    public async Task UpdatePlayerProgressAsync_DailyObjective_CompletionRecordHasPeriodKey()
+    {
+        var obj = await _service.CreateObjectiveAsync(
+            new CreateObjectiveRequest(1, "Duel du jour", "d", "WIN_DUELS", 1, 50, "DAILY"));
+
+        await _service.UpdatePlayerProgressAsync(obj.Id, 1, new UpdateObjectiveProgressRequest(1, "2026-06-11"));
+
+        var completions = (await _service.GetPlayerCompletionsAsync(obj.Id, 1)).ToList();
+        completions.Should().HaveCount(1);
+        completions[0].PeriodKey.Should().Be("2026-06-11");
+        completions[0].XpAwarded.Should().Be(50);
+    }
+
+    [Fact]
+    public async Task UpdatePlayerProgressAsync_SamePeriodTwice_DoesNotCreateSecondCompletion()
+    {
+        var obj = await _service.CreateObjectiveAsync(
+            new CreateObjectiveRequest(1, "Duel du jour", "d", "WIN_DUELS", 1, 50, "DAILY"));
+
+        await _service.UpdatePlayerProgressAsync(obj.Id, 1, new UpdateObjectiveProgressRequest(1, "2026-06-11"));
+        await _service.UpdatePlayerProgressAsync(obj.Id, 1, new UpdateObjectiveProgressRequest(1, "2026-06-11"));
+
+        var completions = await _service.GetPlayerCompletionsAsync(obj.Id, 1);
+        completions.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public async Task UpdatePlayerProgressAsync_DifferentPeriods_CreatesTwoCompletions()
+    {
+        var obj = await _service.CreateObjectiveAsync(
+            new CreateObjectiveRequest(1, "Duel du jour", "d", "WIN_DUELS", 1, 50, "DAILY"));
+
+        await _service.UpdatePlayerProgressAsync(obj.Id, 1, new UpdateObjectiveProgressRequest(1, "2026-06-11"));
+        await _service.UpdatePlayerProgressAsync(obj.Id, 1, new UpdateObjectiveProgressRequest(1, "2026-06-12"));
+
+        var completions = (await _service.GetPlayerCompletionsAsync(obj.Id, 1)).ToList();
+        completions.Should().HaveCount(2);
+        completions.Select(c => c.PeriodKey).Should().Contain(["2026-06-11", "2026-06-12"]);
+    }
+
+    [Fact]
+    public async Task UpdatePlayerProgressAsync_WeeklyObjective_CompletionHasWeekKey()
+    {
+        var obj = await _service.CreateObjectiveAsync(
+            new CreateObjectiveRequest(1, "Semaine glorieuse", "d", "WIN_DUELS", 5, 300, "WEEKLY"));
+
+        await _service.UpdatePlayerProgressAsync(obj.Id, 1, new UpdateObjectiveProgressRequest(5, "2026-W24"));
+
+        var completions = (await _service.GetPlayerCompletionsAsync(obj.Id, 1)).ToList();
+        completions.Should().HaveCount(1);
+        completions[0].PeriodKey.Should().Be("2026-W24");
+    }
+
+    [Fact]
+    public async Task GetPlayerProgressAsync_WithPeriodKey_ReturnsPeriodSpecificProgress()
+    {
+        var obj = await _service.CreateObjectiveAsync(
+            new CreateObjectiveRequest(1, "Duel du jour", "d", "WIN_DUELS", 3, 50, "DAILY"));
+
+        await _service.UpdatePlayerProgressAsync(obj.Id, 1, new UpdateObjectiveProgressRequest(2, "2026-06-11"));
+
+        var progress = await _service.GetPlayerProgressAsync(obj.Id, 1, "2026-06-11");
+        progress.CurrentValue.Should().Be(2);
+        progress.PeriodKey.Should().Be("2026-06-11");
+    }
+
+    [Fact]
+    public async Task GetPlayerProgressAsync_DifferentPeriods_ReturnIsolatedProgress()
+    {
+        var obj = await _service.CreateObjectiveAsync(
+            new CreateObjectiveRequest(1, "Duel du jour", "d", "WIN_DUELS", 3, 50, "DAILY"));
+
+        await _service.UpdatePlayerProgressAsync(obj.Id, 1, new UpdateObjectiveProgressRequest(3, "2026-06-11"));
+
+        var progressDay2 = await _service.GetPlayerProgressAsync(obj.Id, 1, "2026-06-12");
+        progressDay2.CurrentValue.Should().Be(0, "new period starts from zero");
+        progressDay2.IsCompleted.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task GetPlayerCompletionsAsync_NonExistingObjective_ThrowsObjectiveNotFoundException()
+    {
+        Func<Task> act = () => _service.GetPlayerCompletionsAsync(9999, 1);
+
+        await act.Should().ThrowAsync<ObjectiveNotFoundException>();
+    }
 }

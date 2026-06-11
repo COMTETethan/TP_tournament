@@ -34,30 +34,23 @@ public class ObjectiveService : IObjectiveService
     }
 
     public Task<ObjectiveResponse> GetObjectiveAsync(int id)
-    {
-        var entity = _objectives.FirstOrDefault(o => o.Id == id)
-            ?? throw new ObjectiveNotFoundException(id);
-        return Task.FromResult(Map(entity));
-    }
+        => Task.FromResult(Map(FindOrThrow(id)));
 
     public Task<IEnumerable<ObjectiveResponse>> GetSeasonObjectivesAsync(int seasonId)
-    {
-        var result = _objectives.Where(o => o.SeasonId == seasonId).Select(Map).ToList();
-        return Task.FromResult<IEnumerable<ObjectiveResponse>>(result);
-    }
+        => Task.FromResult<IEnumerable<ObjectiveResponse>>(_objectives.Where(o => o.SeasonId == seasonId).Select(Map).ToList());
 
-    public Task<PlayerObjectiveProgressResponse> GetPlayerProgressAsync(int objectiveId, int playerId)
+    public Task<PlayerObjectiveProgressResponse> GetPlayerProgressAsync(int objectiveId, int playerId, string? periodKey = null)
     {
-        if (!_objectives.Any(o => o.Id == objectiveId))
-            throw new ObjectiveNotFoundException(objectiveId);
-
+        FindOrThrow(objectiveId);
         return Task.FromResult(MapProgress(GetOrCreateProgress(objectiveId, playerId)));
     }
 
+    public Task<IEnumerable<PlayerObjectiveCompletionResponse>> GetPlayerCompletionsAsync(int objectiveId, int playerId)
+        => throw new NotImplementedException();
+
     public Task<PlayerObjectiveProgressResponse> UpdatePlayerProgressAsync(int objectiveId, int playerId, UpdateObjectiveProgressRequest request)
     {
-        var obj = _objectives.FirstOrDefault(o => o.Id == objectiveId)
-            ?? throw new ObjectiveNotFoundException(objectiveId);
+        var obj = FindOrThrow(objectiveId);
 
         var prog = GetOrCreateProgress(objectiveId, playerId);
         prog.CurrentValue = Math.Min(request.NewValue, obj.TargetValue);
@@ -70,6 +63,9 @@ public class ObjectiveService : IObjectiveService
 
         return Task.FromResult(MapProgress(prog));
     }
+
+    private ObjectiveEntity FindOrThrow(int id)
+        => _objectives.FirstOrDefault(o => o.Id == id) ?? throw new ObjectiveNotFoundException(id);
 
     private ProgressEntity GetOrCreateProgress(int objectiveId, int playerId)
     {

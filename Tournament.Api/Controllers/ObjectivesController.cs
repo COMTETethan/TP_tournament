@@ -47,11 +47,17 @@ public class ObjectivesController : ControllerBase
     [HttpGet("{id:int}/players/{playerId:int}/progress")]
     [ProducesResponseType(typeof(PlayerObjectiveProgressResponse), 200)]
     [ProducesResponseType(404)]
-    public async Task<IActionResult> GetPlayerProgress(int id, int playerId)
+    public async Task<IActionResult> GetPlayerProgress(int id, int playerId, [FromQuery] string? periodKey = null)
     {
-        try { return Ok(await _objectiveService.GetPlayerProgressAsync(id, playerId)); }
+        try { return Ok(await _objectiveService.GetPlayerProgressAsync(id, playerId, periodKey)); }
         catch (ObjectiveNotFoundException ex) { return NotFound(ex.Message); }
     }
+
+    [HttpGet("{id:int}/players/{playerId:int}/completions")]
+    [ProducesResponseType(typeof(IEnumerable<PlayerObjectiveCompletionResponse>), 200)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> GetPlayerCompletions(int id, int playerId)
+        => throw new NotImplementedException();
 
     [HttpPatch("{id:int}/players/{playerId:int}/progress")]
     [ProducesResponseType(typeof(PlayerObjectiveProgressResponse), 200)]

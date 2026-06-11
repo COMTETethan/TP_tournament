@@ -94,11 +94,52 @@ public class ObjectivesControllerTests
     public async Task GetPlayerProgress_ReturnsOk()
     {
         var response = new PlayerObjectiveProgressResponse(1, 1, 0, false, null);
-        _mockService.Setup(s => s.GetPlayerProgressAsync(1, 1)).ReturnsAsync(response);
+        _mockService.Setup(s => s.GetPlayerProgressAsync(1, 1, null)).ReturnsAsync(response);
 
         var result = await _controller.GetPlayerProgress(1, 1);
 
         result.Should().BeOfType<OkObjectResult>().Which.StatusCode.Should().Be(200);
+    }
+
+    [Fact]
+    public async Task GetPlayerProgress_WithPeriodKey_PassesPeriodKeyToService()
+    {
+        var response = new PlayerObjectiveProgressResponse(1, 1, 0, false, null, "2026-06-11");
+        _mockService.Setup(s => s.GetPlayerProgressAsync(1, 1, "2026-06-11")).ReturnsAsync(response);
+
+        var result = await _controller.GetPlayerProgress(1, 1, "2026-06-11");
+
+        result.Should().BeOfType<OkObjectResult>().Which.StatusCode.Should().Be(200);
+    }
+
+    // ── GET /api/objectives/{id}/players/{playerId}/completions ─
+
+    [Fact]
+    public async Task GetPlayerCompletions_ValidIds_ReturnsOk()
+    {
+        var completions = new List<PlayerObjectiveCompletionResponse>
+        {
+            new(1, 1, 1, DateTime.UtcNow, 100, null),
+            new(2, 1, 1, DateTime.UtcNow, 100, "2026-06-11"),
+        };
+        _mockService.Setup(s => s.GetPlayerCompletionsAsync(1, 1)).ReturnsAsync(completions);
+
+        var result = await _controller.GetPlayerCompletions(1, 1);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.StatusCode.Should().Be(200);
+        ok.Value.Should().BeEquivalentTo(completions);
+    }
+
+    [Fact]
+    public async Task GetPlayerCompletions_ObjectiveNotFound_ReturnsNotFound()
+    {
+        _mockService.Setup(s => s.GetPlayerCompletionsAsync(99, 1))
+                    .ThrowsAsync(new ObjectiveNotFoundException(99));
+
+        var result = await _controller.GetPlayerCompletions(99, 1);
+
+        result.Should().BeOfType<NotFoundObjectResult>().Which.StatusCode.Should().Be(404);
     }
 
     // ── PATCH /api/objectives/{id}/players/{playerId}/progress ─
