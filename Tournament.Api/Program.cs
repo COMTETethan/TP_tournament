@@ -72,6 +72,7 @@ if (!string.IsNullOrWhiteSpace(connectionString))
     // The combat engine stays in-memory but is written through to the database.
     builder.Services.AddSingleton<ICombatService>(sp =>
         new DbCombatPersistenceDecorator(new CombatService(), sp.GetRequiredService<NpgsqlDataSource>()));
+    builder.Services.AddSingleton<IAuthService, DbAuthService>();
 }
 else
 {
@@ -80,6 +81,7 @@ else
     builder.Services.AddSingleton<ITournamentPlayerService, TournamentPlayerService>();
     builder.Services.AddSingleton<IDuelService, DuelService>();
     builder.Services.AddSingleton<ICombatService, CombatService>();
+    builder.Services.AddSingleton<IAuthService, AuthService>();
 }
 
 // Computed over the stores above (DI picks the injecting constructor).
@@ -94,7 +96,6 @@ builder.Services.AddSingleton<ISeasonService, SeasonService>();
 builder.Services.AddSingleton<IBattlepassService, BattlepassService>();
 builder.Services.AddSingleton<IObjectiveService, ObjectiveService>();
 builder.Services.AddSingleton<ISeasonRewardService, SeasonRewardService>();
-builder.Services.AddSingleton<IAuthService, AuthService>();
 
 var app = builder.Build();
 
