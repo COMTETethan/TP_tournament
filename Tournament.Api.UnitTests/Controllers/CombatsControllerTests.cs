@@ -101,6 +101,36 @@ public class CombatsControllerTests
         result.Should().BeOfType<NotFoundObjectResult>().Which.StatusCode.Should().Be(404);
     }
 
+    // ── GET /api/combats/{id}/replay ───────────────────────────
+
+    [Fact]
+    public async Task GetReplay_ExistingId_ReturnsOk()
+    {
+        var replay = new CombatReplayResponse(
+            1, "COMPLETED", 2, 3,
+            new ReplayChampion(1, "Arthur", 1, "Knight", 1, 110),
+            new ReplayChampion(2, "Merlin", 2, "Mage", 1, 110),
+            DateTime.UtcNow, DateTime.UtcNow,
+            new List<CombatEventResponse>());
+        _mockService.Setup(s => s.GetReplayAsync(1)).ReturnsAsync(replay);
+
+        var result = await _controller.GetReplay(1);
+
+        var ok = result.Should().BeOfType<OkObjectResult>().Subject;
+        ok.StatusCode.Should().Be(200);
+        ok.Value.Should().BeEquivalentTo(replay);
+    }
+
+    [Fact]
+    public async Task GetReplay_UnknownId_ReturnsNotFound()
+    {
+        _mockService.Setup(s => s.GetReplayAsync(99)).ThrowsAsync(new CombatNotFoundException(99));
+
+        var result = await _controller.GetReplay(99);
+
+        result.Should().BeOfType<NotFoundObjectResult>().Which.StatusCode.Should().Be(404);
+    }
+
     // ── POST /api/combats/{id}/actions ─────────────────────────
 
     [Fact]

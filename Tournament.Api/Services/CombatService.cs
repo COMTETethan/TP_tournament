@@ -15,6 +15,12 @@ namespace Tournament.Api.Services;
 /// Active buffs/debuffs tick down at the end of each turn.
 /// </para>
 /// <para>A champion's maximum HP is <c>100 + 10 × level</c>.</para>
+/// <para>
+/// Every meaningful action is recorded as an ordered <see cref="CombatEventResponse"/> with a
+/// snapshot of both champions' HP. When the combat ends (knock-out or forfeit) the stream is
+/// finalized; the resulting replay is then served read-only via <see cref="GetReplayAsync"/> so a
+/// frontend can play back an old fight without ever having to build it itself.
+/// </para>
 /// </summary>
 public class CombatService : ICombatService
 {
@@ -42,8 +48,8 @@ public class CombatService : ICombatService
                 C2         = c2,
                 CreatedAt  = DateTime.UtcNow
             };
-            combat.Log.Add(new CombatLogEntry(1,
-                $"Combat started: {c1.Name} (Lv{c1.Level}, {c1.MaxHp} HP) vs {c2.Name} (Lv{c2.Level}, {c2.MaxHp} HP)."));
+            RecordEvent(combat, "COMBAT_START",
+                $"Combat started: {c1.Name} (Lv{c1.Level}, {c1.MaxHp} HP) vs {c2.Name} (Lv{c2.Level}, {c2.MaxHp} HP).");
             Combats.Add(combat);
             return Task.FromResult(Map(combat));
         }
@@ -118,10 +124,18 @@ public class CombatService : ICombatService
                 _ => throw new InvalidCombatActionException($"Invalid slot {request.Slot}; expected 1 or 2.")
             };
 
-            combat.Status     = StatusCompleted;
-            combat.WinnerSlot = winner;
-            Log(combat, $"{quitter.Name} forfeits. Champion {winner} wins!");
+            Finish(combat, winner);
+            RecordEvent(combat, "FORFEIT",
+                $"{quitter.Name} forfeits. Champion {winner} wins!", actor: quitter);
             return Task.FromResult(Map(combat));
+        }
+    }
+
+    public Task<CombatReplayResponse> GetReplayAsync(int id)
+    {
+        lock (Lock)
+        {
+            return Task.FromResult(MapReplay(FindOrThrow(id)));
         }
     }
 
@@ -143,7 +157,7 @@ public class CombatService : ICombatService
         {
             if (attacker.CurrentHp <= 0)
             {
-                Log(combat, $"{attacker.Name} is down and cannot act.");
+                RecordEvent(combat, "SKIPPED", $"{attacker.Name} is down and cannot act.", actor: attacker);
                 continue;
             }
             ApplyAttack(combat, attacker, defender, skill);
@@ -156,10 +170,10 @@ public class CombatService : ICombatService
 
         if (c1.CurrentHp <= 0 || c2.CurrentHp <= 0)
         {
-            combat.Status     = StatusCompleted;
-            combat.WinnerSlot = c1.CurrentHp <= 0 ? 2 : 1;
-            var champ = combat.WinnerSlot == 1 ? c1 : c2;
-            Log(combat, $"Combat over — {champ.Name} wins!");
+            var winner = c1.CurrentHp <= 0 ? 2 : 1;
+            Finish(combat, winner);
+            var champ = winner == 1 ? c1 : c2;
+            RecordEvent(combat, "VICTORY", $"Combat over — {champ.Name} wins!", actor: champ);
         }
         else
         {
@@ -190,14 +204,18 @@ public class CombatService : ICombatService
                     Magnitude      = skill.Power,
                     RemainingTurns = Math.Max(1, skill.Duration)
                 });
-                Log(combat, $"{actor.Name} uses {skill.Name}, raising defense by {skill.Power}.");
+                RecordEvent(combat, "DEFEND",
+                    $"{actor.Name} uses {skill.Name}, raising defense by {skill.Power}.",
+                    actor: actor, skill: skill, target: actor, amount: skill.Power);
                 break;
 
             case "HEAL":
                 var healed = Math.Min(skill.Power, actor.MaxHp - actor.CurrentHp);
                 actor.CurrentHp += healed;
-                Log(combat, $"{actor.Name} uses {skill.Name}, healing {healed} HP. " +
-                            $"({actor.Name}: {actor.CurrentHp}/{actor.MaxHp} HP)");
+                RecordEvent(combat, "HEAL",
+                    $"{actor.Name} uses {skill.Name}, healing {healed} HP. " +
+                    $"({actor.Name}: {actor.CurrentHp}/{actor.MaxHp} HP)",
+                    actor: actor, skill: skill, target: actor, amount: healed);
                 break;
 
             case "AURA":
@@ -217,7 +235,9 @@ public class CombatService : ICombatService
             Magnitude      = skill.Power,
             RemainingTurns = duration
         });
-        Log(combat, $"{actor.Name} uses {skill.Name}: {effect} {skill.Power} on {target.Name} for {duration} turn(s).");
+        RecordEvent(combat, "AURA",
+            $"{actor.Name} uses {skill.Name}: {effect} {skill.Power} on {target.Name} for {duration} turn(s).",
+            actor: actor, skill: skill, target: target, amount: skill.Power, effect: effect);
     }
 
     private static void ApplyAttack(CombatEntity combat, CombatantEntity attacker, CombatantEntity defender, SkillDef skill)
@@ -225,8 +245,10 @@ public class CombatService : ICombatService
         var raw    = skill.Power + AttackBonus(attacker) - Defense(defender);
         var damage = Math.Max(1, raw);
         defender.CurrentHp = Math.Max(0, defender.CurrentHp - damage);
-        Log(combat, $"{attacker.Name} uses {skill.Name} on {defender.Name} for {damage} damage. " +
-                    $"({defender.Name}: {defender.CurrentHp}/{defender.MaxHp} HP)");
+        RecordEvent(combat, "ATTACK",
+            $"{attacker.Name} uses {skill.Name} on {defender.Name} for {damage} damage. " +
+            $"({defender.Name}: {defender.CurrentHp}/{defender.MaxHp} HP)",
+            actor: attacker, skill: skill, target: defender, amount: damage);
     }
 
     private static int AttackBonus(CombatantEntity c)
@@ -247,6 +269,13 @@ public class CombatService : ICombatService
     {
         c.PendingSkillId = null;
         c.HasSubmitted   = false;
+    }
+
+    private static void Finish(CombatEntity combat, int winnerSlot)
+    {
+        combat.Status      = StatusCompleted;
+        combat.WinnerSlot  = winnerSlot;
+        combat.CompletedAt = DateTime.UtcNow;
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -275,8 +304,29 @@ public class CombatService : ICombatService
     private static CombatEntity FindOrThrow(int id)
         => Combats.FirstOrDefault(c => c.Id == id) ?? throw new CombatNotFoundException(id);
 
-    private static void Log(CombatEntity combat, string message)
-        => combat.Log.Add(new CombatLogEntry(combat.Turn, message));
+    /// <summary>Appends a structured replay event (with an HP snapshot) and its narrative log line.</summary>
+    private static void RecordEvent(CombatEntity combat, string type, string message,
+        CombatantEntity? actor = null, SkillDef? skill = null, CombatantEntity? target = null,
+        int? amount = null, string? effect = null)
+    {
+        combat.Events.Add(new CombatEventEntity
+        {
+            Sequence    = combat.Events.Count + 1,
+            Turn        = combat.Turn,
+            Type        = type,
+            ActorSlot   = actor?.Slot,
+            SkillId     = skill?.Id,
+            SkillName   = skill?.Name,
+            Category    = skill?.Category,
+            TargetSlot  = target?.Slot,
+            Amount      = amount,
+            Effect      = effect,
+            Champion1Hp = combat.C1.CurrentHp,
+            Champion2Hp = combat.C2.CurrentHp,
+            Message     = message
+        });
+        combat.Log.Add(new CombatLogEntry(combat.Turn, message));
+    }
 
     private static CombatResponse Map(CombatEntity c)
         => new(c.Id, c.Status, c.Turn, c.WinnerSlot,
@@ -286,6 +336,20 @@ public class CombatService : ICombatService
     private static CombatantState MapCombatant(CombatantEntity c)
         => new(c.Slot, c.Name, c.ClassId, c.Level, c.MaxHp, c.CurrentHp, c.HasSubmitted,
                c.Effects.Select(e => new ActiveEffectState(e.EffectType, e.Magnitude, e.RemainingTurns)).ToList());
+
+    private static CombatReplayResponse MapReplay(CombatEntity c)
+        => new(c.Id, c.Status, c.WinnerSlot, c.Turn,
+               MapReplayChampion(c.C1), MapReplayChampion(c.C2),
+               c.CreatedAt, c.CompletedAt,
+               c.Events.Select(MapEvent).ToList());
+
+    private static ReplayChampion MapReplayChampion(CombatantEntity c)
+        // The class id is validated when the combatant is built, so the lookup always succeeds.
+        => new(c.Slot, c.Name, c.ClassId, ClassCatalog.FindClass(c.ClassId)!.Name, c.Level, c.MaxHp);
+
+    private static CombatEventResponse MapEvent(CombatEventEntity e)
+        => new(e.Sequence, e.Turn, e.Type, e.ActorSlot, e.SkillId, e.SkillName, e.Category,
+               e.TargetSlot, e.Amount, e.Effect, e.Champion1Hp, e.Champion2Hp, e.Message);
 
     // ── In-memory entities ───────────────────────────────────────────────────────
 
@@ -298,7 +362,9 @@ public class CombatService : ICombatService
         public CombatantEntity C1 { get; set; } = null!;
         public CombatantEntity C2 { get; set; } = null!;
         public List<CombatLogEntry> Log { get; } = new();
+        public List<CombatEventEntity> Events { get; } = new();
         public DateTime CreatedAt { get; set; }
+        public DateTime? CompletedAt { get; set; }
     }
 
     private class CombatantEntity
@@ -319,5 +385,22 @@ public class CombatService : ICombatService
         public string EffectType { get; set; } = string.Empty;
         public int Magnitude { get; set; }
         public int RemainingTurns { get; set; }
+    }
+
+    private class CombatEventEntity
+    {
+        public int Sequence { get; set; }
+        public int Turn { get; set; }
+        public string Type { get; set; } = string.Empty;
+        public int? ActorSlot { get; set; }
+        public int? SkillId { get; set; }
+        public string? SkillName { get; set; }
+        public string? Category { get; set; }
+        public int? TargetSlot { get; set; }
+        public int? Amount { get; set; }
+        public string? Effect { get; set; }
+        public int Champion1Hp { get; set; }
+        public int Champion2Hp { get; set; }
+        public string Message { get; set; } = string.Empty;
     }
 }

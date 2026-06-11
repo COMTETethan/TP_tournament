@@ -89,11 +89,12 @@ CREATE TRIGGER enforce_skill_limits
 -- ── combats ───────────────────────────────────────────────────
 
 CREATE TABLE IF NOT EXISTS combats (
-    id          SERIAL        NOT NULL,
-    status      combat_status NOT NULL DEFAULT 'IN_PROGRESS',
-    turn        INT           NOT NULL DEFAULT 1,
-    winner_slot INT,                                   -- NULL until the combat ends
-    created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    id           SERIAL        NOT NULL,
+    status       combat_status NOT NULL DEFAULT 'IN_PROGRESS',
+    turn         INT           NOT NULL DEFAULT 1,
+    winner_slot  INT,                                  -- NULL until the combat ends
+    created_at   TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    completed_at TIMESTAMPTZ,                          -- set when the combat ends (KO or forfeit)
     CONSTRAINT pk_combats PRIMARY KEY (id),
     CONSTRAINT chk_combats_turn_positive CHECK (turn >= 1),
     CONSTRAINT chk_combats_winner_slot   CHECK (winner_slot IS NULL OR winner_slot IN (1, 2))
@@ -161,6 +162,37 @@ CREATE TABLE IF NOT EXISTS combat_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_combat_log_combat ON combat_log(combat_id, id);
+
+-- ── combat_events ─────────────────────────────────────────────
+--  The structured, ordered replay stream recorded as the fight unfolds.
+--  champion{1,2}_hp are snapshots *after* the event, so a frontend can animate playback.
+--  event_type: COMBAT_START, ATTACK, DEFEND, HEAL, AURA, SKIPPED, VICTORY, FORFEIT.
+
+CREATE TABLE IF NOT EXISTS combat_events (
+    id           SERIAL       NOT NULL,
+    combat_id    INT          NOT NULL,
+    sequence     INT          NOT NULL,
+    turn         INT          NOT NULL,
+    event_type   VARCHAR(20)  NOT NULL,
+    actor_slot   INT,
+    skill_id     INT,
+    target_slot  INT,
+    amount       INT,
+    effect       aura_effect,
+    champion1_hp INT          NOT NULL,
+    champion2_hp INT          NOT NULL,
+    message      VARCHAR(255) NOT NULL,
+    CONSTRAINT pk_combat_events PRIMARY KEY (id),
+    CONSTRAINT fk_combat_events_combat
+        FOREIGN KEY (combat_id) REFERENCES combats(id) ON DELETE CASCADE,
+    CONSTRAINT fk_combat_events_skill
+        FOREIGN KEY (skill_id) REFERENCES skills(id),
+    CONSTRAINT uq_combat_events_sequence UNIQUE (combat_id, sequence),
+    CONSTRAINT chk_combat_events_actor_slot  CHECK (actor_slot  IS NULL OR actor_slot  IN (1, 2)),
+    CONSTRAINT chk_combat_events_target_slot CHECK (target_slot IS NULL OR target_slot IN (1, 2))
+);
+
+CREATE INDEX IF NOT EXISTS idx_combat_events_combat ON combat_events(combat_id, sequence);
 
 -- =============================================================
 --  Seed: classes and their skills (read-only roster)

@@ -65,6 +65,19 @@ public class CombatsController : ControllerBase
         catch (InvalidCombatActionException ex) { return BadRequest(ex.Message); }
     }
 
+    /// <summary>
+    /// Get the recorded, read-only replay of a combat (full ordered event stream with HP snapshots).
+    /// The backend records it automatically as the fight unfolds; the frontend only plays it back.
+    /// </summary>
+    [HttpGet("{id:int}/replay")]
+    [ProducesResponseType(typeof(CombatReplayResponse), 200)]
+    [ProducesResponseType(404)]
+    public async Task<IActionResult> GetReplay(int id)
+    {
+        try { return Ok(await _combatService.GetReplayAsync(id)); }
+        catch (CombatNotFoundException ex) { return NotFound(ex.Message); }
+    }
+
     /// <summary>The champion at the given slot concedes; the opponent wins.</summary>
     [HttpPost("{id:int}/forfeit")]
     [ProducesResponseType(typeof(CombatResponse), 200)]
