@@ -4,12 +4,8 @@ using Tournament.Api.Services;
 
 namespace Tournament.Api.UnitTests.Services;
 
-/// <summary>
-/// Walks the full product flow with the user-owned-champion model: one user creates two champions,
-/// registers them in a tournament and fights their duel — then creates a SECOND tournament and
-/// registers the very same champions there for another duel/fight. Proves a champion is reusable
-/// across tournaments while each tournament keeps its own registration state.
-/// </summary>
+[Trait("Category", "Tournament")]
+[Trait("Layer", "Integration")]
 public class FullTournamentScenarioTests
 {
     private const int KnightClass = 1, BerserkerClass = 5;
@@ -18,6 +14,7 @@ public class FullTournamentScenarioTests
     [Fact]
     public async Task OneUsersChampions_PlayInTwoTournaments()
     {
+        // Arrange
         var tournaments   = new TournamentService();
         var players       = new PlayerService();
         var duels         = new DuelService();
@@ -25,23 +22,22 @@ public class FullTournamentScenarioTests
         var registrations = new TournamentPlayerService(players);
         var orchestrator  = new DuelCombatService(duels, players, combat);
 
-        // ── A user creates two champions (a Knight and a Berserker) ────────────────
         var arthur  = await players.CreatePlayerAsync(userId: 1, new CreatePlayerRequest("Arthur",  KnightClass,    Level: 2));
         var mordred = await players.CreatePlayerAsync(userId: 1, new CreatePlayerRequest("Mordred", BerserkerClass, Level: 1));
 
-        // ── Tournament A: register both champions and fight their duel ─────────────
         var tournamentA = await tournaments.CreateTournamentAsync(new CreateTournamentRequest("Coupe d'Été"));
         await registrations.RegisterAsync(tournamentA.Id, arthur.Id);
         await registrations.RegisterAsync(tournamentA.Id, mordred.Id);
 
         var duelA   = await duels.CreateDuelAsync(tournamentA.Id, new CreateDuelRequest(arthur.Id, mordred.Id, DuelOrder: 1));
+        // Act
         var resultA = await FightToEnd(orchestrator, duelA.Id);
 
+        // Assert
         resultA.CombatStatus.Should().Be("COMPLETED");
         resultA.DuelOutcome.Should().BeOneOf("PLAYER1_WIN", "PLAYER2_WIN");
         (await duels.GetDuelAsync(duelA.Id)).Outcome.Should().NotBeNull();
 
-        // ── Tournament B: the SAME champions register and fight again ──────────────
         var tournamentB = await tournaments.CreateTournamentAsync(new CreateTournamentRequest("Coupe d'Hiver"));
         tournamentB.Id.Should().NotBe(tournamentA.Id);
         await registrations.RegisterAsync(tournamentB.Id, arthur.Id);
@@ -55,7 +51,6 @@ public class FullTournamentScenarioTests
         resultB.Combat.Champion1.Name.Should().Be("Arthur");
         resultB.Combat.Champion2.Name.Should().Be("Mordred");
 
-        // ── The same champion is registered in BOTH tournaments ────────────────────
         (await registrations.GetRegistrationAsync(tournamentA.Id, arthur.Id)).PlayerId.Should().Be(arthur.Id);
         (await registrations.GetRegistrationAsync(tournamentB.Id, arthur.Id)).PlayerId.Should().Be(arthur.Id);
         duelA.Id.Should().NotBe(duelB.Id);
@@ -66,8 +61,8 @@ public class FullTournamentScenarioTests
         var state = await orchestrator.StartFromDuelAsync(duelId);
         for (var i = 0; state.CombatStatus == "IN_PROGRESS" && i < 50; i++)
         {
-            await orchestrator.SubmitActionAsync(duelId, new SubmitActionRequest(1, SwordSlash)); // Knight
-            state = await orchestrator.SubmitActionAsync(duelId, new SubmitActionRequest(2, Execute)); // Berserker
+            await orchestrator.SubmitActionAsync(duelId, new SubmitActionRequest(1, SwordSlash));
+            state = await orchestrator.SubmitActionAsync(duelId, new SubmitActionRequest(2, Execute));
         }
         return state;
     }

@@ -4,17 +4,19 @@ using Tournament.Api.Services;
 
 namespace Tournament.Api.UnitTests.Services;
 
+[Trait("Category", "Class")]
+[Trait("Layer", "Service")]
 public class ClassServiceTests
 {
     private readonly ClassService _service = new();
 
-    // ── GetAllClassesAsync ─────────────────────────────────────
-
     [Fact]
     public async Task GetAllClassesAsync_ReturnsTheFiveSeededClasses()
     {
+        // Act
         var result = (await _service.GetAllClassesAsync()).ToList();
 
+        // Assert
         result.Should().HaveCount(5);
         result.Should().Contain(c => c.Name == "Knight");
         result.Should().Contain(c => c.Name == "Berserker");
@@ -23,20 +25,22 @@ public class ClassServiceTests
     [Fact]
     public async Task GetAllClassesAsync_ReportsSkillCountPerClass()
     {
+        // Act
         var result = (await _service.GetAllClassesAsync()).ToList();
 
+        // Assert
         result.Single(c => c.Name == "Knight").SkillCount.Should().Be(5);
         result.Single(c => c.Name == "Mage").SkillCount.Should().Be(4);
         result.Single(c => c.Name == "Berserker").SkillCount.Should().Be(4);
     }
 
-    // ── GetClassAsync ──────────────────────────────────────────
-
     [Fact]
     public async Task GetClassAsync_ExistingId_ReturnsClass()
     {
+        // Act
         var result = await _service.GetClassAsync(1);
 
+        // Assert
         result.Id.Should().Be(1);
         result.Name.Should().Be("Knight");
         result.Description.Should().NotBeNullOrWhiteSpace();
@@ -45,19 +49,21 @@ public class ClassServiceTests
     [Fact]
     public async Task GetClassAsync_UnknownId_ThrowsClassNotFoundException()
     {
+        // Act
         Func<Task> act = () => _service.GetClassAsync(999);
 
+        // Assert
         await act.Should().ThrowAsync<ClassNotFoundException>()
                  .Where(e => e.ClassId == 999);
     }
 
-    // ── GetClassSkillsAsync ────────────────────────────────────
-
     [Fact]
     public async Task GetClassSkillsAsync_Knight_ReturnsItsFiveSkills()
     {
+        // Act
         var result = (await _service.GetClassSkillsAsync(1)).ToList();
 
+        // Assert
         result.Should().HaveCount(5);
         result.Should().OnlyContain(s => s.ClassId == 1);
         result.Should().Contain(s => s.Name == "Sword Slash" && s.Category == "ATTACK");
@@ -66,18 +72,20 @@ public class ClassServiceTests
     [Fact]
     public async Task GetClassSkillsAsync_UnknownClass_ThrowsClassNotFoundException()
     {
+        // Act
         Func<Task> act = () => _service.GetClassSkillsAsync(999);
 
+        // Assert
         await act.Should().ThrowAsync<ClassNotFoundException>();
     }
-
-    // ── GetSkillAsync ──────────────────────────────────────────
 
     [Fact]
     public async Task GetSkillAsync_ExistingId_ReturnsSkill()
     {
+        // Act
         var result = await _service.GetSkillAsync(1);
 
+        // Assert
         result.Id.Should().Be(1);
         result.Name.Should().Be("Sword Slash");
         result.Category.Should().Be("ATTACK");
@@ -88,9 +96,10 @@ public class ClassServiceTests
     [Fact]
     public async Task GetSkillAsync_AuraSkill_CarriesEffect()
     {
-        // Skill 4 = War Cry (Knight AURA, ATTACK_UP)
+        // Act
         var result = await _service.GetSkillAsync(4);
 
+        // Assert
         result.Category.Should().Be("AURA");
         result.AuraEffect.Should().Be("ATTACK_UP");
         result.Duration.Should().Be(3);
@@ -99,23 +108,26 @@ public class ClassServiceTests
     [Fact]
     public async Task GetSkillAsync_UnknownId_ThrowsSkillNotFoundException()
     {
+        // Act
         Func<Task> act = () => _service.GetSkillAsync(9999);
 
+        // Assert
         await act.Should().ThrowAsync<SkillNotFoundException>()
                  .Where(e => e.SkillId == 9999);
     }
 
-    // ── Roster design invariants (0–3 per category, max 5 total) ──
-
     [Fact]
     public async Task EverySeededClass_RespectsSkillLimits()
     {
+        // Arrange
         var classes = await _service.GetAllClassesAsync();
 
         foreach (var klass in classes)
         {
+            // Act
             var skills = (await _service.GetClassSkillsAsync(klass.Id)).ToList();
 
+            // Assert
             skills.Should().HaveCountLessThanOrEqualTo(5,
                 $"class {klass.Name} must have at most 5 skills");
 
@@ -134,11 +146,14 @@ public class ClassServiceTests
     [InlineData("AURA")]
     public async Task EverySkill_HasAValidCategory(string category)
     {
+        // Arrange
         var classes = await _service.GetAllClassesAsync();
         var allSkills = new List<SkillResponse>();
         foreach (var klass in classes)
+            // Act
             allSkills.AddRange(await _service.GetClassSkillsAsync(klass.Id));
 
+        // Assert
         allSkills.Should().Contain(s => s.Category == category,
             $"the roster should contain at least one {category} skill");
         allSkills.Should().OnlyContain(s =>
@@ -149,12 +164,15 @@ public class ClassServiceTests
     [Fact]
     public async Task AuraSkillsHaveAnEffect_NonAuraSkillsDoNot()
     {
+        // Arrange
         var classes = await _service.GetAllClassesAsync();
         var allSkills = new List<SkillResponse>();
         foreach (var klass in classes)
             allSkills.AddRange(await _service.GetClassSkillsAsync(klass.Id));
 
+        // Act
         allSkills.Where(s => s.Category == "AURA")
+                 // Assert
                  .Should().OnlyContain(s => s.AuraEffect != null);
         allSkills.Where(s => s.Category != "AURA")
                  .Should().OnlyContain(s => s.AuraEffect == null);

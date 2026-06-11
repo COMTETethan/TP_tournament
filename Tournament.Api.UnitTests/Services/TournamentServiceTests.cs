@@ -5,11 +5,11 @@ using Tournament.Api.Services;
 
 namespace Tournament.Api.UnitTests.Services;
 
+[Trait("Category", "Tournament")]
+[Trait("Layer", "Service")]
 public class TournamentServiceTests
 {
     private readonly TournamentService _service = new();
-
-    // ── CreateTournamentAsync ──────────────────────────────────
 
     [Fact]
     public async Task CreateTournamentAsync_ValidName_ReturnsTournamentWithOpenStatus()
@@ -41,12 +41,9 @@ public class TournamentServiceTests
                  .WithMessage("*Name*");
     }
 
-    // ── GetTournamentAsync ─────────────────────────────────────
-
     [Fact]
     public async Task GetTournamentAsync_ExistingId_ReturnsTournamentResponse()
     {
-        // Arrange — create first, then retrieve
         var created = await _service.CreateTournamentAsync(new CreateTournamentRequest("Test"));
 
         // Act
@@ -72,8 +69,6 @@ public class TournamentServiceTests
                  .Where(e => e.TournamentId == nonExistingId);
     }
 
-    // ── GetAllTournamentsAsync ─────────────────────────────────
-
     [Fact]
     public async Task GetAllTournamentsAsync_AfterCreatingTwo_ReturnsBothTournaments()
     {
@@ -87,8 +82,6 @@ public class TournamentServiceTests
         // Assert
         result.Should().HaveCountGreaterThanOrEqualTo(2);
     }
-
-    // ── UpdateTournamentStatusAsync ────────────────────────────
 
     [Fact]
     public async Task UpdateTournamentStatusAsync_ValidStatus_UpdatesAndReturnsNewStatus()
@@ -112,10 +105,13 @@ public class TournamentServiceTests
     [InlineData("DONE")]
     public async Task UpdateTournamentStatusAsync_InvalidStatus_ThrowsInvalidTournamentStatusException(string invalidStatus)
     {
+        // Arrange
         var created = await _service.CreateTournamentAsync(new CreateTournamentRequest("Test"));
 
+        // Act
         Func<Task> act = () => _service.UpdateTournamentStatusAsync(created.Id, new UpdateTournamentStatusRequest(invalidStatus));
 
+        // Assert
         await act.Should().ThrowAsync<InvalidTournamentStatusException>();
     }
 

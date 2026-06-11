@@ -5,11 +5,11 @@ using Tournament.Api.Services;
 
 namespace Tournament.Api.UnitTests.Services;
 
+[Trait("Category", "Replay")]
+[Trait("Layer", "Service")]
 public class ReplayServiceTests
 {
     private readonly ReplayService _service = new();
-
-    // ── StartReplayAsync ───────────────────────────────────────────────────
 
     [Fact]
     public async Task StartReplayAsync_ExistingDuel_ReturnsReplayWithIsCompleteFalse()
@@ -43,12 +43,9 @@ public class ReplayServiceTests
                  .Where(e => e.DuelId == nonExistingDuelId);
     }
 
-    // ── GetReplayAsync ─────────────────────────────────────────────────────
-
     [Fact]
     public async Task GetReplayAsync_ExistingDuel_ReturnsReplayResponse()
     {
-        // Arrange — start a replay first so it exists
         const int duelId = 1;
         await _service.StartReplayAsync(duelId);
 
@@ -72,8 +69,6 @@ public class ReplayServiceTests
         await act.Should().ThrowAsync<ReplayNotFoundException>()
                  .Where(e => e.DuelId == nonExistingDuelId);
     }
-
-    // ── AddEventAsync ──────────────────────────────────────────────────────
 
     [Fact]
     public async Task AddEventAsync_ValidRequest_ReturnsReplayEventResponse()
@@ -108,8 +103,6 @@ public class ReplayServiceTests
                  .WithMessage("*event type*");
     }
 
-    // ── CompleteReplayAsync ────────────────────────────────────────────────
-
     [Fact]
     public async Task CompleteReplayAsync_ExistingDuel_SetsIsCompleteTrue()
     {
@@ -124,8 +117,6 @@ public class ReplayServiceTests
         result.IsComplete.Should().BeTrue();
         result.DuelId.Should().Be(duelId);
     }
-
-    // ── GetEventsAsync ─────────────────────────────────────────────────────────
 
     [Fact]
     public async Task GetEventsAsync_AfterAddingEvents_ReturnsEventsSortedByOrder()
@@ -152,8 +143,6 @@ public class ReplayServiceTests
         var touch = events.First(e => e.EventType == "TOUCH");
         touch.Payload.Should().Be("{\"damage\":3}");
     }
-
-    // ── GetCosmeticSnapshotAsync ───────────────────────────────────────────
 
     [Fact]
     public async Task GetCosmeticSnapshotAsync_ExistingDuel_ReturnsCosmeticSnapshot()
@@ -189,24 +178,30 @@ public class ReplayServiceTests
     [Fact]
     public async Task AddEventAsync_NonExistingReplay_ThrowsReplayNotFoundException()
     {
+        // Act
         Func<Task> act = () => _service.AddEventAsync(8888, new AddReplayEventRequest("ATTACK", 100, null, null, null));
 
+        // Assert
         await act.Should().ThrowAsync<ReplayNotFoundException>();
     }
 
     [Fact]
     public async Task GetEventsAsync_NonExistingReplay_ThrowsReplayNotFoundException()
     {
+        // Act
         Func<Task> act = () => _service.GetEventsAsync(8888);
 
+        // Assert
         await act.Should().ThrowAsync<ReplayNotFoundException>();
     }
 
     [Fact]
     public async Task CompleteReplayAsync_NonExistingReplay_ThrowsReplayNotFoundException()
     {
+        // Act
         Func<Task> act = () => _service.CompleteReplayAsync(8888);
 
+        // Assert
         await act.Should().ThrowAsync<ReplayNotFoundException>();
     }
 }

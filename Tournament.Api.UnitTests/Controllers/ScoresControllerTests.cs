@@ -6,6 +6,8 @@ using Tournament.Api.Exceptions;
 
 namespace Tournament.Api.UnitTests.Controllers;
 
+[Trait("Category", "Score")]
+[Trait("Layer", "Controller")]
 public class ScoresControllerTests
 {
     private readonly Mock<IScoreService> _mockService = new();
@@ -15,8 +17,6 @@ public class ScoresControllerTests
     {
         _controller = new ScoresController(_mockService.Object);
     }
-
-    // ── GET /api/tournaments/{tournamentId}/players/{playerId}/score ──
 
     [Fact]
     public async Task GetPlayerScore_RegisteredPlayer_ReturnsOk()
@@ -49,8 +49,6 @@ public class ScoresControllerTests
               .Which.StatusCode.Should().Be(404);
     }
 
-    // ── GET /api/tournaments/{tournamentId}/ranking ────────────
-
     [Fact]
     public async Task GetTournamentRanking_ExistingTournament_ReturnsOkWithSortedRanking()
     {
@@ -73,8 +71,6 @@ public class ScoresControllerTests
         body.Ranking.Should().HaveCount(3);
         body.Ranking[0].FinalScore.Should().BeGreaterThan(body.Ranking[1].FinalScore);
     }
-
-    // ── GET /api/tournaments/{tournamentId}/champion ───────────
 
     [Fact]
     public async Task GetTournamentChampion_ExistingTournament_ReturnsOkWithChampion()

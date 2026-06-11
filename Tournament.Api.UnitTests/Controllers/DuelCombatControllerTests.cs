@@ -7,6 +7,8 @@ using Tournament.Api.Exceptions;
 
 namespace Tournament.Api.UnitTests.Controllers;
 
+[Trait("Category", "DuelCombat")]
+[Trait("Layer", "Controller")]
 public class DuelCombatControllerTests
 {
     private readonly Mock<IDuelCombatService> _mockService = new();
@@ -25,146 +27,172 @@ public class DuelCombatControllerTests
         return new DuelCombatResponse(3, 1, 7, status, winnerSlot, winnerPlayerId, outcome, combat);
     }
 
-    // ── POST /api/duels/{duelId}/combat ────────────────────────
-
     [Fact]
     public async Task StartCombatForDuel_Valid_ReturnsCreated()
     {
+        // Arrange
         _mockService.Setup(s => s.StartFromDuelAsync(3)).ReturnsAsync(FakeDuelCombat());
 
+        // Act
         var result = await _controller.StartCombatForDuel(3);
 
+        // Assert
         result.Should().BeOfType<CreatedAtActionResult>().Which.StatusCode.Should().Be(201);
     }
 
     [Fact]
     public async Task StartCombatForDuel_UnknownDuel_ReturnsNotFound()
     {
+        // Arrange
         _mockService.Setup(s => s.StartFromDuelAsync(99)).ThrowsAsync(new DuelNotFoundException(99));
 
+        // Act
         var result = await _controller.StartCombatForDuel(99);
 
+        // Assert
         result.Should().BeOfType<NotFoundObjectResult>().Which.StatusCode.Should().Be(404);
     }
 
     [Fact]
     public async Task StartCombatForDuel_PlayerWithoutClass_ReturnsBadRequest()
     {
+        // Arrange
         _mockService.Setup(s => s.StartFromDuelAsync(3))
                     .ThrowsAsync(new InvalidCombatActionException("Player has no class."));
 
+        // Act
         var result = await _controller.StartCombatForDuel(3);
 
+        // Assert
         result.Should().BeOfType<BadRequestObjectResult>().Which.StatusCode.Should().Be(400);
     }
-
-    // ── GET /api/duels/{duelId}/combat ─────────────────────────
 
     [Fact]
     public async Task GetDuelCombat_Existing_ReturnsOk()
     {
+        // Arrange
         _mockService.Setup(s => s.GetByDuelAsync(3)).ReturnsAsync(FakeDuelCombat());
 
+        // Act
         var result = await _controller.GetDuelCombat(3);
 
+        // Assert
         result.Should().BeOfType<OkObjectResult>().Which.StatusCode.Should().Be(200);
     }
 
     [Fact]
     public async Task GetDuelCombat_NoCombatStarted_ReturnsBadRequest()
     {
+        // Arrange
         _mockService.Setup(s => s.GetByDuelAsync(3))
                     .ThrowsAsync(new InvalidCombatActionException("No combat started."));
 
+        // Act
         var result = await _controller.GetDuelCombat(3);
 
+        // Assert
         result.Should().BeOfType<BadRequestObjectResult>().Which.StatusCode.Should().Be(400);
     }
-
-    // ── POST /api/duels/{duelId}/combat/actions ────────────────
 
     [Fact]
     public async Task SubmitAction_Valid_ReturnsOk()
     {
+        // Arrange
         var request = new SubmitActionRequest(1, 1);
         _mockService.Setup(s => s.SubmitActionAsync(3, request)).ReturnsAsync(FakeDuelCombat());
 
+        // Act
         var result = await _controller.SubmitAction(3, request);
 
+        // Assert
         result.Should().BeOfType<OkObjectResult>().Which.StatusCode.Should().Be(200);
     }
 
     [Fact]
     public async Task SubmitAction_UnknownSkill_ReturnsNotFound()
     {
+        // Arrange
         var request = new SubmitActionRequest(1, 9999);
         _mockService.Setup(s => s.SubmitActionAsync(3, request)).ThrowsAsync(new SkillNotFoundException(9999));
 
+        // Act
         var result = await _controller.SubmitAction(3, request);
 
+        // Assert
         result.Should().BeOfType<NotFoundObjectResult>().Which.StatusCode.Should().Be(404);
     }
 
     [Fact]
     public async Task SubmitAction_Invalid_ReturnsBadRequest()
     {
+        // Arrange
         var request = new SubmitActionRequest(3, 1);
         _mockService.Setup(s => s.SubmitActionAsync(3, request))
                     .ThrowsAsync(new InvalidCombatActionException("Invalid slot."));
 
+        // Act
         var result = await _controller.SubmitAction(3, request);
 
+        // Assert
         result.Should().BeOfType<BadRequestObjectResult>().Which.StatusCode.Should().Be(400);
     }
-
-    // ── POST /api/duels/{duelId}/combat/forfeit ────────────────
 
     [Fact]
     public async Task Forfeit_Valid_ReturnsOk()
     {
+        // Arrange
         var request = new ForfeitRequest(1);
         _mockService.Setup(s => s.ForfeitAsync(3, request))
                     .ReturnsAsync(FakeDuelCombat("COMPLETED", 2, 2, "PLAYER2_WIN"));
 
+        // Act
         var result = await _controller.Forfeit(3, request);
 
+        // Assert
         result.Should().BeOfType<OkObjectResult>().Which.StatusCode.Should().Be(200);
     }
 
     [Fact]
     public async Task Forfeit_UnknownDuel_ReturnsNotFound()
     {
+        // Arrange
         var request = new ForfeitRequest(1);
         _mockService.Setup(s => s.ForfeitAsync(99, request)).ThrowsAsync(new DuelNotFoundException(99));
 
+        // Act
         var result = await _controller.Forfeit(99, request);
 
+        // Assert
         result.Should().BeOfType<NotFoundObjectResult>().Which.StatusCode.Should().Be(404);
     }
-
-    // ── GET /api/duels/{duelId}/combat/replay ──────────────────
 
     [Fact]
     public async Task GetReplay_Existing_ReturnsOk()
     {
+        // Arrange
         var replay = new CombatReplayResponse(7, "COMPLETED", 1, 5,
             new ReplayChampion(1, "Arthur", 1, "Knight", 2, 120),
             new ReplayChampion(2, "Mordred", 5, "Berserker", 1, 110),
             DateTime.UtcNow, DateTime.UtcNow, new List<CombatEventResponse>());
         _mockService.Setup(s => s.GetReplayByDuelAsync(3)).ReturnsAsync(replay);
 
+        // Act
         var result = await _controller.GetReplay(3);
 
+        // Assert
         result.Should().BeOfType<OkObjectResult>().Which.StatusCode.Should().Be(200);
     }
 
     [Fact]
     public async Task GetReplay_NoCombat_ReturnsNotFound()
     {
+        // Arrange
         _mockService.Setup(s => s.GetReplayByDuelAsync(3)).ThrowsAsync(new CombatNotFoundException(7));
 
+        // Act
         var result = await _controller.GetReplay(3);
 
+        // Assert
         result.Should().BeOfType<NotFoundObjectResult>().Which.StatusCode.Should().Be(404);
     }
 }

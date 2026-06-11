@@ -9,14 +9,14 @@ using Tournament.Api.Exceptions;
 
 namespace Tournament.Api.UnitTests.Controllers;
 
+[Trait("Category", "Skin")]
+[Trait("Layer", "Controller")]
 public class SkinsControllerTests
 {
     private readonly Mock<ISkinService> _mockService = new();
     private readonly SkinsController _controller;
 
     public SkinsControllerTests() => _controller = new SkinsController(_mockService.Object);
-
-    // ── CreateSkin ─────────────────────────────────────────────────────────
 
     [Fact]
     public async Task CreateSkin_ValidRequest_ReturnsCreated()
@@ -49,8 +49,6 @@ public class SkinsControllerTests
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
-    // ── GetAllSkins ────────────────────────────────────────────────────────
-
     [Fact]
     public async Task GetAllSkins_ReturnsOkWithList()
     {
@@ -68,8 +66,6 @@ public class SkinsControllerTests
         // Assert
         result.Should().BeOfType<OkObjectResult>().Which.StatusCode.Should().Be(200);
     }
-
-    // ── GetSkin ────────────────────────────────────────────────────────────
 
     [Fact]
     public async Task GetSkin_ExistingId_ReturnsOk()
@@ -99,8 +95,6 @@ public class SkinsControllerTests
         result.Should().BeOfType<NotFoundObjectResult>();
     }
 
-    // ── DeactivateSkin ─────────────────────────────────────────────────────
-
     [Fact]
     public async Task DeactivateSkin_ExistingId_ReturnsNoContent()
     {
@@ -113,8 +107,6 @@ public class SkinsControllerTests
         // Assert
         result.Should().BeOfType<NoContentResult>().Which.StatusCode.Should().Be(204);
     }
-
-    // ── EquipPlayerSkin ────────────────────────────────────────────────────
 
     [Fact]
     public async Task EquipPlayerSkin_ValidRequest_ReturnsOk()
@@ -131,8 +123,6 @@ public class SkinsControllerTests
         result.Should().BeOfType<OkObjectResult>().Which.StatusCode.Should().Be(200);
     }
 
-    // ── GetPlayerLoadout ───────────────────────────────────────────────────
-
     [Fact]
     public async Task GetPlayerLoadout_ExistingPlayer_ReturnsOk()
     {
@@ -146,8 +136,6 @@ public class SkinsControllerTests
         // Assert
         result.Should().BeOfType<OkObjectResult>().Which.StatusCode.Should().Be(200);
     }
-
-    // ── SetTournamentBackground ────────────────────────────────────────────
 
     [Fact]
     public async Task SetTournamentBackground_ValidRequest_ReturnsOk()
@@ -163,8 +151,6 @@ public class SkinsControllerTests
         // Assert
         result.Should().BeOfType<OkObjectResult>().Which.StatusCode.Should().Be(200);
     }
-
-    // ── GetTournamentBackground ────────────────────────────────────────────
 
     [Fact]
     public async Task GetTournamentBackground_ExistingTournament_ReturnsOk()

@@ -9,14 +9,14 @@ using Tournament.Api.Exceptions;
 
 namespace Tournament.Api.UnitTests.Controllers;
 
+[Trait("Category", "Replay")]
+[Trait("Layer", "Controller")]
 public class ReplaysControllerTests
 {
     private readonly Mock<IReplayService> _mockService = new();
     private readonly ReplaysController _controller;
 
     public ReplaysControllerTests() => _controller = new ReplaysController(_mockService.Object);
-
-    // ── StartReplay ────────────────────────────────────────────────────────
 
     [Fact]
     public async Task StartReplay_ExistingDuel_ReturnsCreated()
@@ -47,8 +47,6 @@ public class ReplaysControllerTests
         result.Should().BeOfType<NotFoundObjectResult>();
     }
 
-    // ── GetReplay ──────────────────────────────────────────────────────────
-
     [Fact]
     public async Task GetReplay_ExistingDuel_ReturnsOk()
     {
@@ -77,8 +75,6 @@ public class ReplaysControllerTests
         // Assert
         result.Should().BeOfType<NotFoundObjectResult>();
     }
-
-    // ── AddEvent ───────────────────────────────────────────────────────────
 
     [Fact]
     public async Task AddEvent_ValidRequest_ReturnsCreated()
@@ -111,8 +107,6 @@ public class ReplaysControllerTests
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
-    // ── GetEvents ──────────────────────────────────────────────────────────
-
     [Fact]
     public async Task GetEvents_ExistingDuel_ReturnsOk()
     {
@@ -131,8 +125,6 @@ public class ReplaysControllerTests
         result.Should().BeOfType<OkObjectResult>().Which.StatusCode.Should().Be(200);
     }
 
-    // ── CompleteReplay ─────────────────────────────────────────────────────
-
     [Fact]
     public async Task CompleteReplay_ExistingDuel_ReturnsOkWithIsCompleteTrue()
     {
@@ -147,8 +139,6 @@ public class ReplaysControllerTests
         var ok = result.Should().BeOfType<OkObjectResult>().Subject;
         ((ReplayResponse)ok.Value!).IsComplete.Should().BeTrue();
     }
-
-    // ── GetCosmeticSnapshot ────────────────────────────────────────────────
 
     [Fact]
     public async Task GetCosmeticSnapshot_ExistingDuel_ReturnsOk()

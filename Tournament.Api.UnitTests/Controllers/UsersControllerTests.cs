@@ -11,6 +11,8 @@ using Tournament.Api.Exceptions;
 
 namespace Tournament.Api.UnitTests.Controllers;
 
+[Trait("Category", "Auth")]
+[Trait("Layer", "Controller")]
 public class UsersControllerTests
 {
     private readonly Mock<IAuthService> _mockService = new();
@@ -19,7 +21,6 @@ public class UsersControllerTests
     public UsersControllerTests()
     {
         _controller = new UsersController(_mockService.Object);
-        // Simulate an authenticated user with userId=1
         SetAuthenticatedUser(userId: 1, email: "alice@test.com");
     }
 
@@ -38,8 +39,6 @@ public class UsersControllerTests
             HttpContext = new DefaultHttpContext { User = principal }
         };
     }
-
-    // ── GET /me ────────────────────────────────────────────────────────────────
 
     [Fact]
     public async Task GetMe_AuthenticatedUser_Returns200WithProfile()
@@ -77,7 +76,6 @@ public class UsersControllerTests
     [Fact]
     public async Task GetMe_MissingSubClaim_Returns401()
     {
-        // Arrange — controller context with no 'sub' claim
         _controller.ControllerContext = new ControllerContext
         {
             HttpContext = new DefaultHttpContext

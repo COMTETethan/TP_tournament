@@ -5,20 +5,14 @@ using Xunit.Abstractions;
 
 namespace Tournament.Api.UnitTests.Services;
 
-/// <summary>
-/// End-to-end smoke test: plays a whole combat through the public service (start → submit actions
-/// every turn → automatic resolution → recorded replay) and prints the narrative, proving a duel
-/// can be fought from beginning to end and is then available as a read-only replay.
-/// Run with: dotnet test --filter FullyQualifiedName~CombatSimulation -l "console;verbosity=detailed"
-/// </summary>
+[Trait("Category", "Combat")]
+[Trait("Layer", "Integration")]
 public class CombatSimulationTests
 {
     private readonly ITestOutputHelper _out;
     private readonly CombatService _service = new();
 
-    // Knight skills
     private const int SwordSlash = 1, Guard = 3, WarCry = 4, SecondWind = 5;
-    // Cleric skills
     private const int Smite = 10, Sanctuary = 11, GreaterHeal = 13, Bless = 14;
 
     public CombatSimulationTests(ITestOutputHelper output) => _out = output;
@@ -26,20 +20,18 @@ public class CombatSimulationTests
     [Fact]
     public async Task FullCombat_FromStartToRecordedReplay()
     {
-        // ── Arrange: a Knight duels a Cleric ───────────────────────────────────────
+        // Arrange
         var combat = await _service.StartCombatAsync(new CreateCombatRequest(
-            new CombatantSpec("Arthur", ClassId: 1 /* Knight */, Level: 2),
-            new CombatantSpec("Lyra",   ClassId: 3 /* Cleric */, Level: 1)));
+            new CombatantSpec("Arthur", ClassId: 1 , Level: 2),
+            new CombatantSpec("Lyra",   ClassId: 3 , Level: 1)));
 
         _out.WriteLine($"=== Combat #{combat.Id} : " +
                        $"{combat.Champion1.Name} (Knight Lv2, {combat.Champion1.MaxHp} HP) vs " +
                        $"{combat.Champion2.Name} (Cleric Lv1, {combat.Champion2.MaxHp} HP) ===");
 
-        // Deterministic scripts — each champion cycles through skills of every category.
         int[] knightPlan = { WarCry, SwordSlash, Guard, SwordSlash, SecondWind, SwordSlash, SwordSlash, SwordSlash, SwordSlash, SwordSlash };
         int[] clericPlan = { Bless,  Smite,      Smite, GreaterHeal, Smite,     Sanctuary,  Smite,      Smite,      Smite,      Smite };
 
-        // ── Act: play turns until someone wins (safety cap so a bug can't hang) ─────
         var state = combat;
         for (var turn = 0; state.Status == "IN_PROGRESS" && turn < 50; turn++)
         {
@@ -48,13 +40,13 @@ public class CombatSimulationTests
 
             await _service.SubmitActionAsync(state.Id, new SubmitActionRequest(1, knightSkill));
             state = await _service.SubmitActionAsync(state.Id, new SubmitActionRequest(2, clericSkill));
+        // Act
         }
 
-        // ── Assert: the duel finished with a winner ────────────────────────────────
+        // Assert
         state.Status.Should().Be("COMPLETED");
         state.WinnerSlot.Should().BeOneOf(1, 2);
 
-        // ── The backend recorded a replay; print it as the frontend would read it ──
         var replay = await _service.GetReplayAsync(combat.Id);
 
         replay.Status.Should().Be("COMPLETED");

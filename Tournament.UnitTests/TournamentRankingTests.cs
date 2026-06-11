@@ -4,6 +4,8 @@ using Tournament.Domain.Service;
 
 namespace Tournament.UnitTests;
 
+[Trait("Category", "TournamentRanking")]
+[Trait("Layer", "Domain")]
 public class TournamentRankingTests
 {
     private readonly Mock<IScoreCalculator> _mockCalculator = new();
@@ -21,8 +23,6 @@ public class TournamentRankingTests
                 player.IsDisqualified,
                 player.PenaltyPoints))
             .Returns(score);
-
-    // ── GetRanking ─────────────────────────────────────────────────────────
 
     [Fact]
     [Trait("Requirement", "REQ-T-012")]
@@ -78,8 +78,6 @@ public class TournamentRankingTests
            .WithParameterName("players");
     }
 
-    // ── GetChampion ────────────────────────────────────────────────────────
-
     [Fact]
     [Trait("Requirement", "REQ-T-013")]
     public void GetChampion_MultiplePlayers_ReturnsHighestScorePlayer()
@@ -115,7 +113,6 @@ public class TournamentRankingTests
         // Act
         var champion = _ranking.GetChampion([playerA, playerB]);
 
-        // Assert — champion exists but calculator returns 0 for disqualified players
         champion.Should().NotBeNull();
         _mockCalculator.Object.CalculateScore(champion.Matches, champion.IsDisqualified, champion.PenaltyPoints)
             .Should().Be(0, "disqualified players always score 0");

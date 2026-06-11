@@ -5,14 +5,14 @@ using Tournament.Api.Services;
 
 namespace Tournament.Api.UnitTests.Services;
 
+[Trait("Category", "Combat")]
+[Trait("Layer", "Service")]
 public class CombatServiceTests
 {
     private readonly CombatService _service = new();
 
-    // Class ids (see ClassCatalog)
     private const int Knight = 1, Mage = 2, Cleric = 3, Rogue = 4, Berserker = 5;
 
-    // Skill ids (see ClassCatalog)
     private const int SwordSlash = 1, Guard = 3, WarCry = 4, SecondWind = 5;
     private const int Fireball = 6;
     private const int Smite = 10, GreaterHeal = 13;
@@ -28,18 +28,18 @@ public class CombatServiceTests
         return await _service.SubmitActionAsync(combatId, new SubmitActionRequest(2, skill2));
     }
 
-    // ── StartCombatAsync ───────────────────────────────────────
-
     [Fact]
     public async Task StartCombatAsync_ValidChampions_CreatesInProgressCombatAtFullHp()
     {
+        // Act
         var combat = await Start(new("Arthur", Knight, 1), new("Merlin", Mage, 1));
 
+        // Assert
         combat.Id.Should().BeGreaterThan(0);
         combat.Status.Should().Be("IN_PROGRESS");
         combat.Turn.Should().Be(1);
         combat.WinnerSlot.Should().BeNull();
-        combat.Champion1.MaxHp.Should().Be(110);     // 100 + 10 × 1
+        combat.Champion1.MaxHp.Should().Be(110);
         combat.Champion1.CurrentHp.Should().Be(110);
         combat.Champion2.CurrentHp.Should().Be(110);
         combat.Log.Should().NotBeEmpty();
@@ -51,8 +51,10 @@ public class CombatServiceTests
     [InlineData(10, 200)]
     public async Task StartCombatAsync_MaxHp_Is100Plus10PerLevel(int level, int expectedHp)
     {
+        // Act
         var combat = await Start(new("Hero", Knight, level), new("Foe", Knight, 1));
 
+        // Assert
         combat.Champion1.Level.Should().Be(level);
         combat.Champion1.MaxHp.Should().Be(expectedHp);
         combat.Champion1.CurrentHp.Should().Be(expectedHp);
@@ -61,8 +63,10 @@ public class CombatServiceTests
     [Fact]
     public async Task StartCombatAsync_UnknownClass_ThrowsClassNotFoundException()
     {
+        // Act
         Func<Task> act = () => Start(new("Ghost", 999, 1), new("Foe", Knight, 1));
 
+        // Assert
         await act.Should().ThrowAsync<ClassNotFoundException>()
                  .Where(e => e.ClassId == 999);
     }
@@ -70,36 +74,43 @@ public class CombatServiceTests
     [Fact]
     public async Task StartCombatAsync_EmptyName_ThrowsArgumentException()
     {
+        // Act
         Func<Task> act = () => Start(new("", Knight, 1), new("Foe", Knight, 1));
 
+        // Assert
         await act.Should().ThrowAsync<ArgumentException>();
     }
 
     [Fact]
     public async Task StartCombatAsync_LevelBelowOne_ThrowsArgumentException()
     {
+        // Act
         Func<Task> act = () => Start(new("Hero", Knight, 0), new("Foe", Knight, 1));
 
+        // Assert
         await act.Should().ThrowAsync<ArgumentException>();
     }
-
-    // ── GetCombatAsync / GetAllCombatsAsync ────────────────────
 
     [Fact]
     public async Task GetCombatAsync_ExistingCombat_ReturnsIt()
     {
+        // Arrange
         var created = await Start(new("Arthur", Knight, 1), new("Merlin", Mage, 1));
 
+        // Act
         var fetched = await _service.GetCombatAsync(created.Id);
 
+        // Assert
         fetched.Id.Should().Be(created.Id);
     }
 
     [Fact]
     public async Task GetCombatAsync_UnknownCombat_ThrowsCombatNotFoundException()
     {
+        // Act
         Func<Task> act = () => _service.GetCombatAsync(999999);
 
+        // Assert
         await act.Should().ThrowAsync<CombatNotFoundException>()
                  .Where(e => e.CombatId == 999999);
     }
@@ -107,22 +118,26 @@ public class CombatServiceTests
     [Fact]
     public async Task GetAllCombatsAsync_ContainsCreatedCombat()
     {
+        // Arrange
         var created = await Start(new("Arthur", Knight, 1), new("Merlin", Mage, 1));
 
+        // Act
         var all = await _service.GetAllCombatsAsync();
 
+        // Assert
         all.Should().Contain(c => c.Id == created.Id);
     }
-
-    // ── SubmitActionAsync — turn flow ──────────────────────────
 
     [Fact]
     public async Task SubmitActionAsync_OnlyOneChampion_WaitsWithoutResolving()
     {
+        // Arrange
         var combat = await Start(new("Arthur", Knight, 1), new("Bedivere", Knight, 1));
 
+        // Act
         var state = await _service.SubmitActionAsync(combat.Id, new SubmitActionRequest(1, SwordSlash));
 
+        // Assert
         state.Turn.Should().Be(1, "the turn only resolves once both champions have acted");
         state.Champion1.HasSubmittedAction.Should().BeTrue();
         state.Champion2.HasSubmittedAction.Should().BeFalse();
@@ -132,11 +147,13 @@ public class CombatServiceTests
     [Fact]
     public async Task SubmitActionAsync_BothAttack_DealsDamageAndAdvancesTurn()
     {
+        // Arrange
         var combat = await Start(new("Arthur", Knight, 1), new("Bedivere", Knight, 1));
 
-        // Both Sword Slash (25 power, no modifiers) → 25 damage each.
+        // Act
         var state = await Resolve(combat.Id, SwordSlash, SwordSlash);
 
+        // Assert
         state.Turn.Should().Be(2);
         state.Status.Should().Be("IN_PROGRESS");
         state.Champion1.CurrentHp.Should().Be(85);
@@ -147,12 +164,13 @@ public class CombatServiceTests
     [Fact]
     public async Task SubmitActionAsync_Defend_ReducesIncomingDamage()
     {
+        // Arrange
         var combat = await Start(new("Arthur", Knight, 1), new("Bedivere", Knight, 1));
 
-        // Champion1 Guard (+20 defense this turn); Champion2 Sword Slash (25).
-        // Damage = max(1, 25 - 20) = 5.
+        // Act
         var state = await Resolve(combat.Id, Guard, SwordSlash);
 
+        // Assert
         state.Champion1.CurrentHp.Should().Be(105);
         state.Champion2.CurrentHp.Should().Be(110, "the defender did not attack");
         state.Champion1.Effects.Should().BeEmpty("a 1-turn Guard expires at end of turn");
@@ -161,15 +179,14 @@ public class CombatServiceTests
     [Fact]
     public async Task SubmitActionAsync_Heal_RestoresHpButNeverAboveMax()
     {
+        // Arrange
         var combat = await Start(new("Lyra", Cleric, 1), new("Ragnar", Berserker, 1));
 
-        // Turn 1: Cleric Smite (20) vs Berserker Reckless Swing (32).
-        // Cleric ends at 110 - 32 = 78.
-        var afterT1 = await Resolve(combat.Id, Smite, /* Reckless Swing */ 20);
+        // Act
+        var afterT1 = await Resolve(combat.Id, Smite,  20);
+        // Assert
         afterT1.Champion1.CurrentHp.Should().Be(78);
 
-        // Turn 2: Cleric Greater Heal (45) while Berserker braces (no attack).
-        // Missing HP is only 32, so the heal is capped at 32 → back to 110, not 123.
         var afterT2 = await Resolve(combat.Id, GreaterHeal, Brace);
 
         afterT2.Champion1.CurrentHp.Should().Be(110);
@@ -179,14 +196,15 @@ public class CombatServiceTests
     [Fact]
     public async Task SubmitActionAsync_AttackBuff_IncreasesDamageDealt()
     {
+        // Arrange
         var combat = await Start(new("Arthur", Knight, 1), new("Bedivere", Knight, 1));
 
-        // Turn 1: Champion1 War Cry (+10 ATTACK for 3 turns); Champion2 heals (full → no-op).
+        // Act
         var afterT1 = await Resolve(combat.Id, WarCry, SecondWind);
+        // Assert
         afterT1.Champion1.Effects.Should().Contain(e => e.EffectType == "ATTACK_UP" && e.Magnitude == 10);
         afterT1.Champion1.Effects.Single(e => e.EffectType == "ATTACK_UP").RemainingTurns.Should().Be(2);
 
-        // Turn 2: buffed Sword Slash → 25 + 10 = 35 damage.
         var afterT2 = await Resolve(combat.Id, SwordSlash, SecondWind);
         afterT2.Champion2.CurrentHp.Should().Be(75);
     }
@@ -194,80 +212,93 @@ public class CombatServiceTests
     [Fact]
     public async Task SubmitActionAsync_DefenseDebuff_IncreasesDamageTaken()
     {
+        // Arrange
         var combat = await Start(new("Sly", Rogue, 1), new("Bedivere", Knight, 1));
 
-        // Turn 1: Rogue Expose Weakness (−15 DEFENSE on enemy for 2 turns); Knight heals (no-op).
         await Resolve(combat.Id, ExposeWeakness, SecondWind);
 
-        // Turn 2: Backstab (30) vs −15 defense → 30 − (−15) = 45 damage.
+        // Act
         var afterT2 = await Resolve(combat.Id, Backstab, SecondWind);
 
+        // Assert
         afterT2.Champion2.CurrentHp.Should().Be(65);
     }
 
     [Fact]
     public async Task SubmitActionAsync_DuplicateSubmissionSameTurn_ThrowsInvalidCombatActionException()
     {
+        // Arrange
         var combat = await Start(new("Arthur", Knight, 1), new("Bedivere", Knight, 1));
         await _service.SubmitActionAsync(combat.Id, new SubmitActionRequest(1, SwordSlash));
 
+        // Act
         Func<Task> act = () => _service.SubmitActionAsync(combat.Id, new SubmitActionRequest(1, Guard));
 
+        // Assert
         await act.Should().ThrowAsync<InvalidCombatActionException>();
     }
 
     [Fact]
     public async Task SubmitActionAsync_SkillFromAnotherClass_ThrowsInvalidCombatActionException()
     {
+        // Arrange
         var combat = await Start(new("Arthur", Knight, 1), new("Merlin", Mage, 1));
 
-        // Fireball belongs to the Mage, not the Knight in slot 1.
+        // Act
         Func<Task> act = () => _service.SubmitActionAsync(combat.Id, new SubmitActionRequest(1, Fireball));
 
+        // Assert
         await act.Should().ThrowAsync<InvalidCombatActionException>();
     }
 
     [Fact]
     public async Task SubmitActionAsync_UnknownSkill_ThrowsSkillNotFoundException()
     {
+        // Arrange
         var combat = await Start(new("Arthur", Knight, 1), new("Bedivere", Knight, 1));
 
+        // Act
         Func<Task> act = () => _service.SubmitActionAsync(combat.Id, new SubmitActionRequest(1, 9999));
 
+        // Assert
         await act.Should().ThrowAsync<SkillNotFoundException>();
     }
 
     [Fact]
     public async Task SubmitActionAsync_InvalidSlot_ThrowsInvalidCombatActionException()
     {
+        // Arrange
         var combat = await Start(new("Arthur", Knight, 1), new("Bedivere", Knight, 1));
 
+        // Act
         Func<Task> act = () => _service.SubmitActionAsync(combat.Id, new SubmitActionRequest(3, SwordSlash));
 
+        // Assert
         await act.Should().ThrowAsync<InvalidCombatActionException>();
     }
 
     [Fact]
     public async Task SubmitActionAsync_UnknownCombat_ThrowsCombatNotFoundException()
     {
+        // Act
         Func<Task> act = () => _service.SubmitActionAsync(999999, new SubmitActionRequest(1, SwordSlash));
 
+        // Assert
         await act.Should().ThrowAsync<CombatNotFoundException>();
     }
-
-    // ── Initiative, knock-out and victory ──────────────────────
 
     [Fact]
     public async Task SubmitActionAsync_HigherLevelStrikesFirst_AndCanKnockOutBeforeTheSlowerActs()
     {
-        // Champion2 is level 5 (150 HP) and faster; Champion1 is level 1 (110 HP).
+        // Arrange
         var combat = await Start(new("Pip", Berserker, 1), new("Titan", Berserker, 5));
 
-        // Both Execute (40) every turn. The faster Titan always strikes first.
-        await Resolve(combat.Id, Execute, Execute); // T1: Pip 70, Titan 110
-        await Resolve(combat.Id, Execute, Execute); // T2: Pip 30, Titan 70
-        var final = await Resolve(combat.Id, Execute, Execute); // T3: Titan hits first → Pip 0, Pip is skipped
+        await Resolve(combat.Id, Execute, Execute);
+        await Resolve(combat.Id, Execute, Execute);
+        // Act
+        var final = await Resolve(combat.Id, Execute, Execute);
 
+        // Assert
         final.Status.Should().Be("COMPLETED");
         final.WinnerSlot.Should().Be(2);
         final.Champion1.CurrentHp.Should().Be(0);
@@ -279,23 +310,27 @@ public class CombatServiceTests
     [Fact]
     public async Task SubmitActionAsync_OnCompletedCombat_ThrowsInvalidCombatActionException()
     {
+        // Arrange
         var combat = await Start(new("Pip", Berserker, 1), new("Pop", Berserker, 1));
         await _service.ForfeitAsync(combat.Id, new ForfeitRequest(1));
 
+        // Act
         Func<Task> act = () => _service.SubmitActionAsync(combat.Id, new SubmitActionRequest(2, Execute));
 
+        // Assert
         await act.Should().ThrowAsync<InvalidCombatActionException>();
     }
-
-    // ── ForfeitAsync ───────────────────────────────────────────
 
     [Fact]
     public async Task ForfeitAsync_Slot1Concedes_Slot2Wins()
     {
+        // Arrange
         var combat = await Start(new("Coward", Knight, 1), new("Brave", Knight, 1));
 
+        // Act
         var result = await _service.ForfeitAsync(combat.Id, new ForfeitRequest(1));
 
+        // Assert
         result.Status.Should().Be("COMPLETED");
         result.WinnerSlot.Should().Be(2);
         result.Log.Should().Contain(e => e.Message.Contains("forfeits"));
@@ -304,39 +339,50 @@ public class CombatServiceTests
     [Fact]
     public async Task ForfeitAsync_Slot2Concedes_Slot1Wins()
     {
+        // Arrange
         var combat = await Start(new("Brave", Knight, 1), new("Coward", Knight, 1));
 
+        // Act
         var result = await _service.ForfeitAsync(combat.Id, new ForfeitRequest(2));
 
+        // Assert
         result.WinnerSlot.Should().Be(1);
     }
 
     [Fact]
     public async Task ForfeitAsync_InvalidSlot_ThrowsInvalidCombatActionException()
     {
+        // Arrange
         var combat = await Start(new("A", Knight, 1), new("B", Knight, 1));
 
+        // Act
         Func<Task> act = () => _service.ForfeitAsync(combat.Id, new ForfeitRequest(7));
 
+        // Assert
         await act.Should().ThrowAsync<InvalidCombatActionException>();
     }
 
     [Fact]
     public async Task ForfeitAsync_AlreadyCompleted_ThrowsInvalidCombatActionException()
     {
+        // Arrange
         var combat = await Start(new("A", Knight, 1), new("B", Knight, 1));
         await _service.ForfeitAsync(combat.Id, new ForfeitRequest(1));
 
+        // Act
         Func<Task> act = () => _service.ForfeitAsync(combat.Id, new ForfeitRequest(2));
 
+        // Assert
         await act.Should().ThrowAsync<InvalidCombatActionException>();
     }
 
     [Fact]
     public async Task ForfeitAsync_UnknownCombat_ThrowsCombatNotFoundException()
     {
+        // Act
         Func<Task> act = () => _service.ForfeitAsync(999999, new ForfeitRequest(1));
 
+        // Assert
         await act.Should().ThrowAsync<CombatNotFoundException>();
     }
 }

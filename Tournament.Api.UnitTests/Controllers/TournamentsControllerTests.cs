@@ -7,6 +7,8 @@ using Tournament.Api.Exceptions;
 
 namespace Tournament.Api.UnitTests.Controllers;
 
+[Trait("Category", "Tournament")]
+[Trait("Layer", "Controller")]
 public class TournamentsControllerTests
 {
     private readonly Mock<ITournamentService> _mockService = new();
@@ -16,8 +18,6 @@ public class TournamentsControllerTests
     {
         _controller = new TournamentsController(_mockService.Object);
     }
-
-    // ── POST /api/tournaments ──────────────────────────────────
 
     [Fact]
     public async Task CreateTournament_ValidRequest_ReturnsCreated()
@@ -52,8 +52,6 @@ public class TournamentsControllerTests
               .Which.StatusCode.Should().Be(400);
     }
 
-    // ── GET /api/tournaments/{id} ──────────────────────────────
-
     [Fact]
     public async Task GetTournament_ExistingId_ReturnsOk()
     {
@@ -85,8 +83,6 @@ public class TournamentsControllerTests
               .Which.StatusCode.Should().Be(404);
     }
 
-    // ── GET /api/tournaments ───────────────────────────────────
-
     [Fact]
     public async Task GetAllTournaments_ReturnsOkWithList()
     {
@@ -106,8 +102,6 @@ public class TournamentsControllerTests
         ok.StatusCode.Should().Be(200);
         ok.Value.Should().BeEquivalentTo(list);
     }
-
-    // ── PATCH /api/tournaments/{id}/status ────────────────────
 
     [Fact]
     public async Task UpdateTournamentStatus_ValidStatus_ReturnsOk()

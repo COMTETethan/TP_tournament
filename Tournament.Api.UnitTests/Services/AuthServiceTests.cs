@@ -6,14 +6,13 @@ using Tournament.Api.Services;
 
 namespace Tournament.Api.UnitTests.Services;
 
+[Trait("Category", "Auth")]
+[Trait("Layer", "Service")]
 public class AuthServiceTests
 {
-    // Each test uses a unique email to avoid static-store collision
     private static string UniqueEmail() => $"user_{Guid.NewGuid():N}@test.com";
 
     private readonly AuthService _service = new("test-secret-key-min-32-chars-long!!!");
-
-    // ── RegisterAsync ──────────────────────────────────────────────────────────
 
     [Fact]
     public async Task RegisterAsync_ValidCredentials_ReturnsAuthResponse()
@@ -64,8 +63,6 @@ public class AuthServiceTests
         await act.Should().ThrowAsync<ArgumentException>();
     }
 
-    // ── LoginAsync ─────────────────────────────────────────────────────────────
-
     [Fact]
     public async Task LoginAsync_ValidCredentials_ReturnsAuthResponse()
     {
@@ -106,8 +103,6 @@ public class AuthServiceTests
         await act.Should().ThrowAsync<InvalidCredentialsException>();
     }
 
-    // ── RefreshAsync ───────────────────────────────────────────────────────────
-
     [Fact]
     public async Task RefreshAsync_ValidRefreshToken_ReturnsNewTokenPair()
     {
@@ -137,19 +132,15 @@ public class AuthServiceTests
     [Fact]
     public async Task RefreshAsync_OldTokenAfterRotation_ThrowsInvalidRefreshTokenException()
     {
-        // Arrange — refresh once to rotate the token
         var email    = UniqueEmail();
         var first    = await _service.RegisterAsync(new RegisterRequest(email, "Password1!"));
         await _service.RefreshAsync(new RefreshTokenRequest(first.RefreshToken));
 
-        // Act — try to use the old refresh token again
         Func<Task> act = () => _service.RefreshAsync(new RefreshTokenRequest(first.RefreshToken));
 
         // Assert
         await act.Should().ThrowAsync<InvalidRefreshTokenException>();
     }
-
-    // ── GetMeAsync ─────────────────────────────────────────────────────────────
 
     [Fact]
     public async Task GetMeAsync_ExistingUser_ReturnsMeResponse()
@@ -158,7 +149,6 @@ public class AuthServiceTests
         var email  = UniqueEmail();
         await _service.RegisterAsync(new RegisterRequest(email, "Password1!"));
 
-        // Decode userId from the token to call GetMeAsync correctly
         var login  = await _service.LoginAsync(new LoginRequest(email, "Password1!"));
         var userId = GetUserIdFromToken(login.AccessToken);
 
@@ -182,14 +172,13 @@ public class AuthServiceTests
         await act.Should().ThrowAsync<InvalidCredentialsException>();
     }
 
-    // ── IConfiguration constructor ──────────────────────────────────────────
-
     private static IConfiguration BuildConfig(Dictionary<string, string?> values) =>
         new ConfigurationBuilder().AddInMemoryCollection(values).Build();
 
     [Fact]
     public void Constructor_WithFullConfiguration_InitializesService()
     {
+        // Arrange
         var config = BuildConfig(new()
         {
             ["Jwt:Secret"]                = "a-super-secret-key-at-least-32-chars!!",
@@ -199,32 +188,39 @@ public class AuthServiceTests
             ["Jwt:RefreshTokenExpiryDays"]  = "14",
         });
 
+        // Act
         var svc = new AuthService(config);
 
+        // Assert
         svc.Should().NotBeNull();
     }
 
     [Fact]
     public void Constructor_WithMissingJwtSecret_ThrowsInvalidOperationException()
     {
+        // Arrange
         var config = BuildConfig(new() { ["Jwt:Secret"] = null });
 
+        // Act
         Action act = () => _ = new AuthService(config);
 
+        // Assert
         act.Should().Throw<InvalidOperationException>().WithMessage("*Jwt:Secret*");
     }
 
     [Fact]
     public void Constructor_WithOnlySecret_UsesDefaultsForOptionalValues()
     {
+        // Arrange
         var config = BuildConfig(new() { ["Jwt:Secret"] = "a-super-secret-key-at-least-32-chars!!" });
 
+        // Act
         var svc = new AuthService(config);
 
+        // Assert
         svc.Should().NotBeNull();
     }
 
-    // Helper: extract 'sub' claim from JWT without validating signature
     private static int GetUserIdFromToken(string token)
     {
         var parts   = token.Split('.');

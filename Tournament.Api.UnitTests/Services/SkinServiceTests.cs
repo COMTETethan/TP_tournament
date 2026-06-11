@@ -5,11 +5,11 @@ using Tournament.Api.Services;
 
 namespace Tournament.Api.UnitTests.Services;
 
+[Trait("Category", "Skin")]
+[Trait("Layer", "Service")]
 public class SkinServiceTests
 {
     private readonly SkinService _service = new();
-
-    // ── CreateSkinAsync ────────────────────────────────────────────────────
 
     [Fact]
     public async Task CreateSkinAsync_ValidPlayerSkin_ReturnsSkinResponse()
@@ -45,8 +45,6 @@ public class SkinServiceTests
                  .Where(e => e.AttemptedCategory == "WEAPON");
     }
 
-    // ── GetAllSkinsAsync ───────────────────────────────────────────────────
-
     [Fact]
     public async Task GetAllSkinsAsync_AfterCreatingTwo_ReturnsBothSkins()
     {
@@ -60,8 +58,6 @@ public class SkinServiceTests
         // Assert
         result.Should().HaveCountGreaterThanOrEqualTo(2);
     }
-
-    // ── GetSkinAsync ───────────────────────────────────────────────────────
 
     [Fact]
     public async Task GetSkinAsync_ExistingId_ReturnsSkinResponse()
@@ -91,8 +87,6 @@ public class SkinServiceTests
                  .Where(e => e.SkinId == nonExistingId);
     }
 
-    // ── DeactivateSkinAsync ────────────────────────────────────────────────
-
     [Fact]
     public async Task DeactivateSkinAsync_ExistingId_SetsIsActiveFalse()
     {
@@ -106,8 +100,6 @@ public class SkinServiceTests
         // Assert
         deactivated.IsActive.Should().BeFalse();
     }
-
-    // ── EquipPlayerSkinAsync ───────────────────────────────────────────────
 
     [Fact]
     public async Task EquipPlayerSkinAsync_ValidPlayerAndPlayerSkin_ReturnsLoadout()
@@ -142,7 +134,6 @@ public class SkinServiceTests
     [Fact]
     public async Task EquipPlayerSkinAsync_BackgroundSkinOnPlayer_ThrowsInvalidSkinCategoryException()
     {
-        // Arrange — background skins cannot be equipped on a player
         var skin = await _service.CreateSkinAsync(new CreateSkinRequest("BACKGROUND", "Stone Z", "skins/bg/stone_z"));
         var request = new EquipPlayerSkinRequest(skin.Id);
 
@@ -152,8 +143,6 @@ public class SkinServiceTests
         // Assert
         await act.Should().ThrowAsync<InvalidSkinCategoryException>();
     }
-
-    // ── SetTournamentBackgroundAsync ───────────────────────────────────────
 
     [Fact]
     public async Task SetTournamentBackgroundAsync_ValidBackgroundSkin_ReturnsTournamentBackground()
@@ -174,7 +163,6 @@ public class SkinServiceTests
     [Fact]
     public async Task SetTournamentBackgroundAsync_PlayerSkinOnBackground_ThrowsInvalidSkinCategoryException()
     {
-        // Arrange — player skins cannot be used as background
         var skin    = await _service.CreateSkinAsync(new CreateSkinRequest("PLAYER", "Knight Z", "skins/player/knight_z"));
         var request = new SetTournamentBackgroundRequest(skin.Id);
 
@@ -184,8 +172,6 @@ public class SkinServiceTests
         // Assert
         await act.Should().ThrowAsync<InvalidSkinCategoryException>();
     }
-
-    // ── SetTournamentBackgroundAsync upsert ────────────────────────────────────
 
     [Fact]
     public async Task SetTournamentBackgroundAsync_CalledTwice_UpdatesExistingBackground()
@@ -204,8 +190,6 @@ public class SkinServiceTests
         result.AssetKey.Should().Be("skins/bg/arena_y");
     }
 
-    // ── EquipPlayerSkinAsync upsert ────────────────────────────────────────────
-
     [Fact]
     public async Task EquipPlayerSkinAsync_CalledTwice_UpdatesExistingLoadout()
     {
@@ -222,8 +206,6 @@ public class SkinServiceTests
         result.SkinName.Should().Be("Warrior B");
         result.AssetKey.Should().Be("skins/player/warrior_b");
     }
-
-    // ── GetPlayerLoadoutAsync ──────────────────────────────────────────────────
 
     [Fact]
     public async Task GetPlayerLoadoutAsync_PlayerWithLoadout_ReturnsLoadoutWithSkinDetails()
@@ -245,7 +227,6 @@ public class SkinServiceTests
     [Fact]
     public async Task GetPlayerLoadoutAsync_PlayerWithNoLoadout_ReturnsEmptyLoadout()
     {
-        // Act — player 88 has never had a skin set
         var result = await _service.GetPlayerLoadoutAsync(playerId: 88);
 
         // Assert
@@ -254,8 +235,6 @@ public class SkinServiceTests
         result.SkinName.Should().BeNull();
         result.AssetKey.Should().BeNull();
     }
-
-    // ── GetTournamentBackgroundAsync ───────────────────────────────────────────
 
     [Fact]
     public async Task GetTournamentBackgroundAsync_TournamentWithBackground_ReturnsBackground()
@@ -277,7 +256,6 @@ public class SkinServiceTests
     [Fact]
     public async Task GetTournamentBackgroundAsync_TournamentWithNoBackground_ReturnsEmptyBackground()
     {
-        // Act — tournament 999 has no background set
         var result = await _service.GetTournamentBackgroundAsync(tournamentId: 999);
 
         // Assert

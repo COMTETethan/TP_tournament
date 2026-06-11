@@ -7,6 +7,8 @@ using Tournament.Api.Exceptions;
 
 namespace Tournament.Api.UnitTests.Controllers;
 
+[Trait("Category", "Duel")]
+[Trait("Layer", "Controller")]
 public class DuelsControllerTests
 {
     private readonly Mock<IDuelService> _mockService = new();
@@ -19,8 +21,6 @@ public class DuelsControllerTests
 
     private static DuelResponse MakeDuel(int id = 1, string? outcome = null, int? duration = null)
         => new(id, 1, 1, 2, outcome, 1, DateTime.UtcNow, duration);
-
-    // ── POST /api/tournaments/{tournamentId}/duels ─────────────
 
     [Fact]
     public async Task CreateDuel_ValidRequest_ReturnsCreated()
@@ -39,8 +39,6 @@ public class DuelsControllerTests
         created.Value.Should().BeEquivalentTo(response);
     }
 
-    // ── GET /api/tournaments/{tournamentId}/duels ──────────────
-
     [Fact]
     public async Task GetTournamentDuels_ExistingTournament_ReturnsOk()
     {
@@ -56,8 +54,6 @@ public class DuelsControllerTests
         ok.StatusCode.Should().Be(200);
         ok.Value.Should().BeEquivalentTo(duels);
     }
-
-    // ── GET /api/duels/{id} ────────────────────────────────────
 
     [Fact]
     public async Task GetDuel_ExistingId_ReturnsOk()
@@ -90,8 +86,6 @@ public class DuelsControllerTests
               .Which.StatusCode.Should().Be(404);
     }
 
-    // ── PATCH /api/duels/{id}/outcome ─────────────────────────
-
     [Fact]
     public async Task SetDuelOutcome_ValidOutcome_ReturnsOk()
     {
@@ -108,8 +102,6 @@ public class DuelsControllerTests
         ok.StatusCode.Should().Be(200);
         ok.Value.As<DuelResponse>().Outcome.Should().Be("PLAYER1_WIN");
     }
-
-    // ── POST /api/duels/{id}/end ───────────────────────────────
 
     [Fact]
     public async Task EndDuel_ValidDuration_ReturnsOk()

@@ -6,11 +6,11 @@ using Tournament.Api.UnitTests.TestData;
 
 namespace Tournament.Api.UnitTests.Services;
 
+[Trait("Category", "Duel")]
+[Trait("Layer", "Service")]
 public class DuelServiceTests
 {
     private readonly DuelService _service = new();
-
-    // ── CreateDuelAsync ────────────────────────────────────────
 
     [Fact]
     public async Task CreateDuelAsync_ValidRequest_ReturnsDuelResponse()
@@ -46,8 +46,6 @@ public class DuelServiceTests
                  .WithMessage("*same player*");
     }
 
-    // ── GetDuelAsync ───────────────────────────────────────────
-
     [Fact]
     public async Task GetDuelAsync_ExistingId_ReturnsDuelResponse()
     {
@@ -75,8 +73,6 @@ public class DuelServiceTests
                  .Where(e => e.DuelId == nonExistingId);
     }
 
-    // ── GetTournamentDuelsAsync ────────────────────────────────
-
     [Fact]
     public async Task GetTournamentDuelsAsync_AfterCreatingTwo_ReturnsBothDuels()
     {
@@ -90,8 +86,6 @@ public class DuelServiceTests
         // Assert
         result.Should().HaveCountGreaterThanOrEqualTo(2);
     }
-
-    // ── SetDuelOutcomeAsync ────────────────────────────────────
 
     [Fact]
     public async Task SetDuelOutcomeAsync_ValidOutcome_UpdatesOutcome()
@@ -111,14 +105,15 @@ public class DuelServiceTests
     [ClassData(typeof(InvalidDuelOutcomeCases))]
     public async Task SetDuelOutcomeAsync_InvalidOutcome_ThrowsArgumentException(string invalidOutcome)
     {
+        // Arrange
         var created = await _service.CreateDuelAsync(1, new CreateDuelRequest(1, 2, 1));
 
+        // Act
         Func<Task> act = () => _service.SetDuelOutcomeAsync(created.Id, new SetDuelOutcomeRequest(invalidOutcome));
 
+        // Assert
         await act.Should().ThrowAsync<ArgumentException>();
     }
-
-    // ── EndDuelAsync ───────────────────────────────────────────
 
     [Fact]
     public async Task EndDuelAsync_ValidDuration_SetsDurationAndTimestamp()
@@ -141,7 +136,6 @@ public class DuelServiceTests
         var created = await _service.CreateDuelAsync(1, new CreateDuelRequest(1, 2, 1));
         await _service.EndDuelAsync(created.Id, new EndDuelRequest(180));
 
-        // Act — second call should fail
         Func<Task> act = () => _service.EndDuelAsync(created.Id, new EndDuelRequest(200));
 
         // Assert
@@ -152,16 +146,20 @@ public class DuelServiceTests
     [Fact]
     public async Task SetDuelOutcomeAsync_NonExistingDuel_ThrowsDuelNotFoundException()
     {
+        // Act
         Func<Task> act = () => _service.SetDuelOutcomeAsync(9999, new SetDuelOutcomeRequest("PLAYER1_WIN"));
 
+        // Assert
         await act.Should().ThrowAsync<DuelNotFoundException>();
     }
 
     [Fact]
     public async Task EndDuelAsync_NonExistingDuel_ThrowsDuelNotFoundException()
     {
+        // Act
         Func<Task> act = () => _service.EndDuelAsync(9999, new EndDuelRequest(120));
 
+        // Assert
         await act.Should().ThrowAsync<DuelNotFoundException>();
     }
 }

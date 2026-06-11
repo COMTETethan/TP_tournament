@@ -9,6 +9,8 @@ using Tournament.Api.Exceptions;
 
 namespace Tournament.Api.UnitTests.Controllers;
 
+[Trait("Category", "Auth")]
+[Trait("Layer", "Controller")]
 public class AuthControllerTests
 {
     private readonly Mock<IAuthService> _mockService = new();
@@ -20,8 +22,6 @@ public class AuthControllerTests
         ExpiresAt:    DateTime.UtcNow.AddHours(4));
 
     public AuthControllerTests() => _controller = new AuthController(_mockService.Object);
-
-    // ── POST /auth/register ────────────────────────────────────────────────────
 
     [Fact]
     public async Task Register_ValidRequest_Returns201()
@@ -67,8 +67,6 @@ public class AuthControllerTests
         result.Should().BeOfType<BadRequestObjectResult>();
     }
 
-    // ── POST /auth/login ───────────────────────────────────────────────────────
-
     [Fact]
     public async Task Login_ValidCredentials_Returns200WithTokens()
     {
@@ -98,8 +96,6 @@ public class AuthControllerTests
         // Assert
         result.Should().BeOfType<UnauthorizedObjectResult>();
     }
-
-    // ── POST /auth/refresh ─────────────────────────────────────────────────────
 
     [Fact]
     public async Task Refresh_ValidToken_Returns200WithNewTokens()
