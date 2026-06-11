@@ -22,7 +22,12 @@ public class BattlepassController : ControllerBase
     [ProducesResponseType(400)]
     public async Task<IActionResult> CreateBattlepass([FromBody] CreateBattlepassRequest request)
     {
-        throw new NotImplementedException();
+        try
+        {
+            var created = await _battlepassService.CreateBattlepassAsync(request);
+            return CreatedAtAction(nameof(GetBattlepassBySeason), new { seasonId = created.SeasonId }, created);
+        }
+        catch (ArgumentException ex) { return BadRequest(ex.Message); }
     }
 
     [HttpGet("season/{seasonId:int}")]
@@ -30,7 +35,8 @@ public class BattlepassController : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> GetBattlepassBySeason(int seasonId)
     {
-        throw new NotImplementedException();
+        try { return Ok(await _battlepassService.GetBattlepassBySeasonAsync(seasonId)); }
+        catch (BattlepassNotFoundException ex) { return NotFound(ex.Message); }
     }
 
     [HttpPost("{id:int}/tiers")]
@@ -39,7 +45,13 @@ public class BattlepassController : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> AddTier(int id, [FromBody] AddBattlepassTierRequest request)
     {
-        throw new NotImplementedException();
+        try
+        {
+            var tier = await _battlepassService.AddTierAsync(id, request);
+            return CreatedAtAction(nameof(GetTiers), new { id }, tier);
+        }
+        catch (BattlepassNotFoundException ex) { return NotFound(ex.Message); }
+        catch (ArgumentException ex) { return BadRequest(ex.Message); }
     }
 
     [HttpGet("{id:int}/tiers")]
@@ -47,7 +59,8 @@ public class BattlepassController : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> GetTiers(int id)
     {
-        throw new NotImplementedException();
+        try { return Ok(await _battlepassService.GetTiersAsync(id)); }
+        catch (BattlepassNotFoundException ex) { return NotFound(ex.Message); }
     }
 
     [HttpGet("{id:int}/players/{playerId:int}/progress")]
@@ -55,7 +68,8 @@ public class BattlepassController : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> GetPlayerProgress(int id, int playerId)
     {
-        throw new NotImplementedException();
+        try { return Ok(await _battlepassService.GetPlayerProgressAsync(id, playerId)); }
+        catch (BattlepassNotFoundException ex) { return NotFound(ex.Message); }
     }
 
     [HttpPost("{id:int}/players/{playerId:int}/xp")]
@@ -64,6 +78,8 @@ public class BattlepassController : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> AddXp(int id, int playerId, [FromBody] AddXpRequest request)
     {
-        throw new NotImplementedException();
+        try { return Ok(await _battlepassService.AddXpAsync(id, playerId, request)); }
+        catch (ArgumentException ex) { return BadRequest(ex.Message); }
+        catch (BattlepassNotFoundException ex) { return NotFound(ex.Message); }
     }
 }

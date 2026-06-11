@@ -22,7 +22,12 @@ public class SeasonsController : ControllerBase
     [ProducesResponseType(400)]
     public async Task<IActionResult> CreateSeason([FromBody] CreateSeasonRequest request)
     {
-        throw new NotImplementedException();
+        try
+        {
+            var created = await _seasonService.CreateSeasonAsync(request);
+            return CreatedAtAction(nameof(GetSeason), new { id = created.Id }, created);
+        }
+        catch (ArgumentException ex) { return BadRequest(ex.Message); }
     }
 
     [HttpGet("{id:int}")]
@@ -30,15 +35,14 @@ public class SeasonsController : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> GetSeason(int id)
     {
-        throw new NotImplementedException();
+        try { return Ok(await _seasonService.GetSeasonAsync(id)); }
+        catch (SeasonNotFoundException ex) { return NotFound(ex.Message); }
     }
 
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<SeasonResponse>), 200)]
     public async Task<IActionResult> GetAllSeasons()
-    {
-        throw new NotImplementedException();
-    }
+        => Ok(await _seasonService.GetAllSeasonsAsync());
 
     [HttpPatch("{id:int}/status")]
     [ProducesResponseType(typeof(SeasonResponse), 200)]
@@ -46,7 +50,9 @@ public class SeasonsController : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> UpdateSeasonStatus(int id, [FromBody] UpdateSeasonStatusRequest request)
     {
-        throw new NotImplementedException();
+        try { return Ok(await _seasonService.UpdateSeasonStatusAsync(id, request)); }
+        catch (InvalidSeasonStatusException ex) { return BadRequest(ex.Message); }
+        catch (SeasonNotFoundException ex) { return NotFound(ex.Message); }
     }
 
     [HttpPost("{id:int}/tournaments/{tournamentId:int}")]
@@ -54,7 +60,12 @@ public class SeasonsController : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> AddTournamentToSeason(int id, int tournamentId)
     {
-        throw new NotImplementedException();
+        try
+        {
+            await _seasonService.AddTournamentToSeasonAsync(id, tournamentId);
+            return NoContent();
+        }
+        catch (SeasonNotFoundException ex) { return NotFound(ex.Message); }
     }
 
     [HttpGet("{id:int}/players/{playerId:int}/stats")]
@@ -62,6 +73,7 @@ public class SeasonsController : ControllerBase
     [ProducesResponseType(404)]
     public async Task<IActionResult> GetPlayerSeasonalStats(int id, int playerId)
     {
-        throw new NotImplementedException();
+        try { return Ok(await _seasonService.GetPlayerSeasonalStatsAsync(id, playerId)); }
+        catch (SeasonNotFoundException ex) { return NotFound(ex.Message); }
     }
 }
