@@ -1,21 +1,26 @@
 using FluentAssertions;
+using Moq;
 using Tournament.Domain.Service;
 
 namespace Tournament.UnitTests;
 
 public class TournamentRankingTests
 {
-    private readonly ScoreCalculator _scoreCalculator = new();
+    private readonly Mock<IScoreCalculator> _mockCalculator = new();
     private readonly TournamentRanking _ranking;
 
     public TournamentRankingTests()
     {
-        _ranking = new TournamentRanking(_scoreCalculator);
+        _ranking = new TournamentRanking(_mockCalculator.Object);
     }
 
-    private static MatchResult W() => new(MatchResult.Result.Win);
-    private static MatchResult D() => new(MatchResult.Result.Draw);
-    private static MatchResult L() => new(MatchResult.Result.Loss);
+    private void SetupScore(Player player, int score) =>
+        _mockCalculator
+            .Setup(c => c.CalculateScore(
+                It.Is<List<MatchResult>>(m => ReferenceEquals(m, player.Matches)),
+                player.IsDisqualified,
+                player.PenaltyPoints))
+            .Returns(score);
 
     // ── GetRanking ─────────────────────────────────────────────────────────
 
@@ -24,15 +29,16 @@ public class TournamentRankingTests
     public void GetRanking_MultiplePlayers_SortedByScoreDescending()
     {
         // Arrange
-        var players = new List<Player>
-        {
-            new() { Name = "Sir Galahad",   Matches = [W(), L(), D()] },  // 4 pts
-            new() { Name = "Dame Morgane",  Matches = [W(), W(), W()] },  // 14 pts
-            new() { Name = "Chevalier Noir", Matches = [D(), D()] },       // 2 pts
-        };
+        var galahad = new Player { Name = "Sir Galahad" };
+        var morgane = new Player { Name = "Dame Morgane" };
+        var noir    = new Player { Name = "Chevalier Noir" };
+
+        SetupScore(galahad, 4);
+        SetupScore(morgane, 14);
+        SetupScore(noir,    2);
 
         // Act
-        var ranking = _ranking.GetRanking(players);
+        var ranking = _ranking.GetRanking([galahad, morgane, noir]);
 
         // Assert
         ranking.Should().HaveCount(3);
@@ -46,18 +52,30 @@ public class TournamentRankingTests
     public void GetRanking_TiedPlayers_BothPresentInRanking()
     {
         // Arrange
-        var players = new List<Player>
-        {
-            new() { Name = "Player A", Matches = [W(), D()] },  // 4 pts
-            new() { Name = "Player B", Matches = [W(), D()] },  // 4 pts
-        };
+        var playerA = new Player { Name = "Player A" };
+        var playerB = new Player { Name = "Player B" };
+
+        SetupScore(playerA, 4);
+        SetupScore(playerB, 4);
 
         // Act
-        var ranking = _ranking.GetRanking(players);
+        var ranking = _ranking.GetRanking([playerA, playerB]);
 
         // Assert
         ranking.Should().HaveCount(2);
         ranking.Select(p => p.Name).Should().Contain("Player A").And.Contain("Player B");
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-T-012")]
+    public void GetRanking_NullPlayers_ThrowsArgumentNullException()
+    {
+        // Act
+        Action act = () => _ranking.GetRanking(null!);
+
+        // Assert
+        act.Should().Throw<ArgumentNullException>()
+           .WithParameterName("players");
     }
 
     // ── GetChampion ────────────────────────────────────────────────────────
@@ -67,15 +85,16 @@ public class TournamentRankingTests
     public void GetChampion_MultiplePlayers_ReturnsHighestScorePlayer()
     {
         // Arrange
-        var players = new List<Player>
-        {
-            new() { Name = "Sir Galahad",   Matches = [W(), L()] },       // 3 pts
-            new() { Name = "Dame Morgane",  Matches = [W(), W(), W()] },  // 14 pts
-            new() { Name = "Chevalier Noir", Matches = [W(), D()] },      // 4 pts
-        };
+        var galahad = new Player { Name = "Sir Galahad" };
+        var morgane = new Player { Name = "Dame Morgane" };
+        var noir    = new Player { Name = "Chevalier Noir" };
+
+        SetupScore(galahad, 3);
+        SetupScore(morgane, 14);
+        SetupScore(noir,    4);
 
         // Act
-        var champion = _ranking.GetChampion(players);
+        var champion = _ranking.GetChampion([galahad, morgane, noir]);
 
         // Assert
         champion.Name.Should().Be("Dame Morgane");
@@ -87,17 +106,41 @@ public class TournamentRankingTests
     public void GetChampion_AllDisqualified_ReturnsPlayerWithZeroScore()
     {
         // Arrange
-        var players = new List<Player>
-        {
-            new() { Name = "Player A", Matches = [W(), W()], IsDisqualified = true },
-            new() { Name = "Player B", Matches = [W(), W(), W()], IsDisqualified = true },
-        };
+        var playerA = new Player { Name = "Player A", IsDisqualified = true };
+        var playerB = new Player { Name = "Player B", IsDisqualified = true };
+
+        SetupScore(playerA, 0);
+        SetupScore(playerB, 0);
 
         // Act
-        var champion = _ranking.GetChampion(players);
+        var champion = _ranking.GetChampion([playerA, playerB]);
 
-        // Assert — champion exists but has score 0
+        // Assert — champion exists but calculator returns 0 for disqualified players
         champion.Should().NotBeNull();
-        _scoreCalculator.CalculateScore(champion.Matches, champion.IsDisqualified).Should().Be(0);
+        _mockCalculator.Object.CalculateScore(champion.Matches, champion.IsDisqualified, champion.PenaltyPoints)
+            .Should().Be(0, "disqualified players always score 0");
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-T-013")]
+    public void GetChampion_NullPlayers_ThrowsArgumentNullException()
+    {
+        // Act
+        Action act = () => _ranking.GetChampion(null!);
+
+        // Assert
+        act.Should().Throw<ArgumentNullException>()
+           .WithParameterName("players");
+    }
+
+    [Fact]
+    [Trait("Requirement", "REQ-T-013")]
+    public void GetChampion_EmptyPlayersList_ThrowsInvalidOperationException()
+    {
+        // Act
+        Action act = () => _ranking.GetChampion([]);
+
+        // Assert
+        act.Should().Throw<InvalidOperationException>();
     }
 }
