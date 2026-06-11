@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
-using Npgsql;
 using Tournament.Api.Contracts;
 using Tournament.Api.Data;
 using Tournament.Api.Services;
@@ -15,13 +14,8 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("Default")
     ?? throw new InvalidOperationException("ConnectionStrings:Default not configured.");
 
-var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
-dataSourceBuilder.MapEnum<TournamentStatus>("tournament_status");
-dataSourceBuilder.MapEnum<DuelOutcome>("duel_outcome");
-var dataSource = dataSourceBuilder.Build();
-
 builder.Services.AddDbContext<TournamentDbContext>(options =>
-    options.UseNpgsql(dataSource));
+    options.UseNpgsql(connectionString));
 
 // ── Controllers & Swagger ─────────────────────────────────────────────────────
 builder.Services.AddControllers();

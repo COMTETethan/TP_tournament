@@ -19,7 +19,7 @@ public class TournamentDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).HasColumnName("id");
             e.Property(x => x.Name).HasColumnName("name").HasMaxLength(150).IsRequired();
-            e.Property(x => x.Status).HasColumnName("status");
+            e.Property(x => x.Status).HasColumnName("status").HasConversion<string>();
             e.Property(x => x.CreatedAt).HasColumnName("created_at");
         });
 
@@ -43,7 +43,7 @@ public class TournamentDbContext : DbContext
             e.Property(x => x.TournamentId).HasColumnName("tournament_id").IsRequired();
             e.Property(x => x.Player1Id).HasColumnName("player1_id").IsRequired();
             e.Property(x => x.Player2Id).HasColumnName("player2_id").IsRequired();
-            e.Property(x => x.Outcome).HasColumnName("outcome");
+            e.Property(x => x.Outcome).HasColumnName("outcome").HasConversion<string>();
             e.Property(x => x.DuelOrder).HasColumnName("duel_order").IsRequired();
             e.Property(x => x.PlayedAt).HasColumnName("played_at");
             e.Property(x => x.Duration).HasColumnName("duration");
