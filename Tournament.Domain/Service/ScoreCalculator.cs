@@ -11,7 +11,52 @@ public class ScoreCalculator
     /// <returns>Final score (never negative)</returns>
     public int CalculateScore(List<MatchResult> matches, bool isDisqualified = false, int penaltyPoints = 0)
     {
-        // TODO: implement according to tournament rules
-        throw new NotImplementedException();
+        if (matches is null)
+            throw new ArgumentNullException(nameof(matches));
+
+        if (penaltyPoints < 0)
+            throw new ArgumentException("Penalty points must be non-negative", nameof(penaltyPoints));
+
+        if (isDisqualified)
+            return 0;
+
+        var basePoints = 0;
+        var bonusPoints = 0;
+        var currentWinStreak = 0;
+
+        foreach (var m in matches)
+        {
+            switch (m.Outcome)
+            {
+                case MatchResult.Result.Win:
+                    basePoints += 3;
+                    currentWinStreak++;
+                    break;
+                case MatchResult.Result.Draw:
+                    basePoints += 1;
+                    if (currentWinStreak >= 3)
+                    {
+                        bonusPoints += 5;
+                    }
+                    currentWinStreak = 0;
+                    break;
+                case MatchResult.Result.Loss:
+                    // no points for loss
+                    if (currentWinStreak >= 3)
+                    {
+                        bonusPoints += 5;
+                    }
+                    currentWinStreak = 0;
+                    break;
+            }
+        }
+
+        if (currentWinStreak >= 3)
+        {
+            bonusPoints += 5;
+        }
+
+        var total = basePoints + bonusPoints - penaltyPoints;
+        return total < 0 ? 0 : total;
     }
 }

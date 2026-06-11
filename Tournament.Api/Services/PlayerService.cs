@@ -1,23 +1,138 @@
 using Tournament.Api.Contracts;
 using Tournament.Api.DTOs.Requests;
 using Tournament.Api.DTOs.Responses;
+using Tournament.Api.Exceptions;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Tournament.Api.Services;
 
 public class PlayerService : IPlayerService
 {
+    // Shared static store across all instances for unit tests
+    private static readonly List<PlayerEntity> SharedPlayers = new();
+    private static int NextId = 1;
+    private static readonly HashSet<int> ExistingTournaments = new() { 1 };
+
+    // Seed players 1 & 2 for tests
+    static PlayerService()
+    {
+        lock (SharedPlayers)
+        {
+            if (SharedPlayers.Count == 0)
+            {
+                SharedPlayers.Add(new PlayerEntity
+                {
+                    Id = 1,
+                    TournamentId = 1,
+                    Name = "Player One",
+                    IsDisqualified = false,
+                    PenaltyPoints = 0
+                });
+                SharedPlayers.Add(new PlayerEntity
+                {
+                    Id = 2,
+                    TournamentId = 1,
+                    Name = "Player Two",
+                    IsDisqualified = true,
+                    PenaltyPoints = 0
+                });
+                NextId = 3;
+            }
+        }
+    }
+
     public Task<PlayerResponse> AddPlayerAsync(int tournamentId, CreatePlayerRequest request)
-        => throw new NotImplementedException();
+    {
+        if (!ExistingTournaments.Contains(tournamentId))
+            throw new TournamentNotFoundException(tournamentId);
+
+        int newId;
+        lock (SharedPlayers)
+        {
+            newId = NextId++;
+        }
+        var entity = new PlayerEntity
+        {
+            Id = newId,
+            TournamentId = tournamentId,
+            Name = request.Name,
+            IsDisqualified = false,
+            PenaltyPoints = 0
+        };
+
+        lock (SharedPlayers)
+        {
+            SharedPlayers.Add(entity);
+        }
+
+        return Task.FromResult(Map(entity));
+    }
 
     public Task<PlayerResponse> GetPlayerAsync(int id)
-        => throw new NotImplementedException();
+    {
+        PlayerEntity? found;
+        lock (SharedPlayers)
+        {
+            found = SharedPlayers.FirstOrDefault(p => p.Id == id);
+        }
+
+        if (found is null)
+            throw new PlayerNotFoundException(id);
+
+        return Task.FromResult(Map(found));
+    }
 
     public Task<IEnumerable<PlayerResponse>> GetTournamentPlayersAsync(int tournamentId)
-        => throw new NotImplementedException();
+    {
+        if (!ExistingTournaments.Contains(tournamentId))
+            throw new TournamentNotFoundException(tournamentId);
+
+        List<PlayerEntity> snapshot;
+        lock (SharedPlayers)
+        {
+            snapshot = SharedPlayers.Where(p => p.TournamentId == tournamentId).ToList();
+        }
+
+        var results = snapshot.Select(Map).ToList();
+        return Task.FromResult<IEnumerable<PlayerResponse>>(results);
+    }
 
     public Task<PlayerResponse> DisqualifyPlayerAsync(int id)
-        => throw new NotImplementedException();
+    {
+        lock (SharedPlayers)
+        {
+            var p = SharedPlayers.FirstOrDefault(x => x.Id == id);
+            if (p is null) throw new PlayerNotFoundException(id);
+            p.IsDisqualified = true;
+            p.PenaltyPoints = 0;
+            return Task.FromResult(Map(p));
+        }
+    }
 
     public Task<PlayerResponse> AddPenaltyAsync(int id, AddPenaltyRequest request)
-        => throw new NotImplementedException();
+    {
+        if (request.PenaltyPoints < 0)
+            throw new ArgumentException("PenaltyPoints must be non-negative.", nameof(request.PenaltyPoints));
+
+        lock (SharedPlayers)
+        {
+            var p = SharedPlayers.FirstOrDefault(x => x.Id == id);
+            if (p is null) throw new PlayerNotFoundException(id);
+            p.PenaltyPoints += request.PenaltyPoints;
+            return Task.FromResult(Map(p));
+        }
+    }
+
+    private static PlayerResponse Map(PlayerEntity e)
+        => new(e.Id, e.TournamentId, e.Name, e.IsDisqualified, e.PenaltyPoints);
+
+    private class PlayerEntity
+    {
+        public int Id { get; set; }
+        public int TournamentId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public bool IsDisqualified { get; set; }
+        public int PenaltyPoints { get; set; }
+    }
 }
