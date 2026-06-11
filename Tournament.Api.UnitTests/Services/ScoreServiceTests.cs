@@ -4,6 +4,7 @@ using Tournament.Api.Contracts;
 using Tournament.Api.DTOs.Responses;
 using Tournament.Api.Exceptions;
 using Tournament.Api.Services;
+using Tournament.Api.UnitTests.TestData;
 
 namespace Tournament.Api.UnitTests.Services;
 
@@ -207,5 +208,28 @@ public class ScoreServiceTests
         var result = await _service.GetPlayerScoreAsync(3);
 
         result.FinalScore.Should().Be(3, "1 win (3) + 1 loss (-1) + 1 draw (+1) = 3");
+    }
+
+    // ── Parameterized score calculation ───────────────────────────────────────
+
+    [Theory]
+    [ClassData(typeof(PlayerScoreCases))]
+    public async Task GetPlayerScoreAsync_VariousOutcomes_ReturnsExpectedScore(
+        string[] outcomes, int penaltyPoints, int expectedScore, string _reason)
+    {
+        var player = new PlayerResponse(50, 1, "Test", IsDisqualified: false, PenaltyPoints: penaltyPoints);
+        var duels = outcomes
+            .Select((outcome, i) => new DuelResponse(
+                200 + i, 1, Player1Id: 50, Player2Id: 99,
+                Outcome: outcome, DuelOrder: i + 1,
+                PlayedAt: Now, DurationSeconds: 120))
+            .ToList();
+
+        _players.Setup(s => s.GetPlayerAsync(50)).ReturnsAsync(player);
+        _duels.Setup(s => s.GetTournamentDuelsAsync(1)).ReturnsAsync(duels);
+
+        var result = await _service.GetPlayerScoreAsync(50);
+
+        result.FinalScore.Should().Be(expectedScore, _reason);
     }
 }

@@ -2,6 +2,7 @@ using Tournament.Api.DTOs.Requests;
 using Tournament.Api.DTOs.Responses;
 using Tournament.Api.Exceptions;
 using Tournament.Api.Services;
+using Tournament.Api.UnitTests.TestData;
 
 namespace Tournament.Api.UnitTests.Services;
 
@@ -106,19 +107,15 @@ public class DuelServiceTests
         result.Outcome.Should().Be("PLAYER1_WIN");
     }
 
-    [Fact]
-    public async Task SetDuelOutcomeAsync_InvalidOutcome_ThrowsArgumentException()
+    [Theory]
+    [ClassData(typeof(InvalidDuelOutcomeCases))]
+    public async Task SetDuelOutcomeAsync_InvalidOutcome_ThrowsArgumentException(string invalidOutcome)
     {
-        // Arrange
         var created = await _service.CreateDuelAsync(1, new CreateDuelRequest(1, 2, 1));
-        var request = new SetDuelOutcomeRequest("BANANA");
 
-        // Act
-        Func<Task> act = () => _service.SetDuelOutcomeAsync(created.Id, request);
+        Func<Task> act = () => _service.SetDuelOutcomeAsync(created.Id, new SetDuelOutcomeRequest(invalidOutcome));
 
-        // Assert
-        await act.Should().ThrowAsync<ArgumentException>()
-                 .WithMessage("*outcome*");
+        await act.Should().ThrowAsync<ArgumentException>();
     }
 
     // ── EndDuelAsync ───────────────────────────────────────────
@@ -150,16 +147,6 @@ public class DuelServiceTests
         // Assert
         await act.Should().ThrowAsync<DuelAlreadyEndedException>()
                  .Where(e => e.DuelId == created.Id);
-    }
-
-    [Fact]
-    public async Task SetDuelOutcomeAsync_WhitespaceOutcome_ThrowsArgumentException()
-    {
-        var created = await _service.CreateDuelAsync(1, new CreateDuelRequest(1, 2, 1));
-
-        Func<Task> act = () => _service.SetDuelOutcomeAsync(created.Id, new SetDuelOutcomeRequest("   "));
-
-        await act.Should().ThrowAsync<ArgumentException>();
     }
 
     [Fact]

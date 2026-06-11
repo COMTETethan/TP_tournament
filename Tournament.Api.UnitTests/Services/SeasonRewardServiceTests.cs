@@ -3,6 +3,7 @@ using Tournament.Api.DTOs.Requests;
 using Tournament.Api.DTOs.Responses;
 using Tournament.Api.Exceptions;
 using Tournament.Api.Services;
+using Tournament.Api.UnitTests.TestData;
 
 namespace Tournament.Api.UnitTests.Services;
 
@@ -53,34 +54,14 @@ public class SeasonRewardServiceTests
         result.RankMax.Should().BeNull();
     }
 
-    [Fact]
-    public async Task CreateSeasonRewardAsync_RankMinZero_ThrowsArgumentException()
+    [Theory]
+    [ClassData(typeof(InvalidSeasonRewardCases))]
+    public async Task CreateSeasonRewardAsync_InvalidRequest_ThrowsArgumentException(
+        CreateSeasonRewardRequest request, string reason)
     {
-        var request = new CreateSeasonRewardRequest(0, null, "SKIN", "{}", "Champion");
-
         Func<Task> act = () => _service.CreateSeasonRewardAsync(1, request);
 
-        await act.Should().ThrowAsync<ArgumentException>();
-    }
-
-    [Fact]
-    public async Task CreateSeasonRewardAsync_RankMaxLessThanRankMin_ThrowsArgumentException()
-    {
-        var request = new CreateSeasonRewardRequest(5, 3, "SKIN", "{}", "Invalid");
-
-        Func<Task> act = () => _service.CreateSeasonRewardAsync(1, request);
-
-        await act.Should().ThrowAsync<ArgumentException>();
-    }
-
-    [Fact]
-    public async Task CreateSeasonRewardAsync_EmptyLabel_ThrowsArgumentException()
-    {
-        var request = new CreateSeasonRewardRequest(1, null, "SKIN", "{}", "");
-
-        Func<Task> act = () => _service.CreateSeasonRewardAsync(1, request);
-
-        await act.Should().ThrowAsync<ArgumentException>();
+        await act.Should().ThrowAsync<ArgumentException>(reason);
     }
 
     [Fact]
