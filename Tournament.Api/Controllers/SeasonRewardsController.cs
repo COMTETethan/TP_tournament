@@ -17,6 +17,7 @@ public class SeasonRewardsController : ControllerBase
         _service = service;
     }
 
+    /// <summary>Create a reward tier for a season (rank range → reward).</summary>
     [HttpPost]
     [ProducesResponseType(typeof(SeasonRewardResponse), 201)]
     [ProducesResponseType(400)]
@@ -32,6 +33,7 @@ public class SeasonRewardsController : ControllerBase
         catch (ArgumentException ex) { return BadRequest(ex.Message); }
     }
 
+    /// <summary>List all reward tiers for a season.</summary>
     [HttpGet]
     [ProducesResponseType(typeof(IEnumerable<SeasonRewardResponse>), 200)]
     [ProducesResponseType(404)]
@@ -41,6 +43,7 @@ public class SeasonRewardsController : ControllerBase
         catch (SeasonNotFoundException ex) { return NotFound(ex.Message); }
     }
 
+    /// <summary>Distribute season rewards to players based on their final rank (idempotent).</summary>
     [HttpPost("distribute")]
     [ProducesResponseType(typeof(IEnumerable<PlayerSeasonRewardResponse>), 200)]
     [ProducesResponseType(404)]
@@ -50,6 +53,7 @@ public class SeasonRewardsController : ControllerBase
         catch (SeasonNotFoundException ex) { return NotFound(ex.Message); }
     }
 
+    /// <summary>Get all rewards earned by a player in a season.</summary>
     [HttpGet("players/{playerId:int}")]
     [ProducesResponseType(typeof(IEnumerable<PlayerSeasonRewardResponse>), 200)]
     [ProducesResponseType(404)]

@@ -17,6 +17,7 @@ public class ObjectivesController : ControllerBase
         _objectiveService = objectiveService;
     }
 
+    /// <summary>Create a new objective for a season.</summary>
     [HttpPost]
     [ProducesResponseType(typeof(ObjectiveResponse), 201)]
     [ProducesResponseType(400)]
@@ -30,6 +31,7 @@ public class ObjectivesController : ControllerBase
         catch (ArgumentException ex) { return BadRequest(ex.Message); }
     }
 
+    /// <summary>Get an objective by id.</summary>
     [HttpGet("{id:int}")]
     [ProducesResponseType(typeof(ObjectiveResponse), 200)]
     [ProducesResponseType(404)]
@@ -39,11 +41,13 @@ public class ObjectivesController : ControllerBase
         catch (ObjectiveNotFoundException ex) { return NotFound(ex.Message); }
     }
 
+    /// <summary>List all objectives for a season.</summary>
     [HttpGet("season/{seasonId:int}")]
     [ProducesResponseType(typeof(IEnumerable<ObjectiveResponse>), 200)]
     public async Task<IActionResult> GetSeasonObjectives(int seasonId)
         => Ok(await _objectiveService.GetSeasonObjectivesAsync(seasonId));
 
+    /// <summary>Get a player's progress on an objective. Pass periodKey for DAILY (YYYY-MM-DD) or WEEKLY (YYYY-WNN) objectives.</summary>
     [HttpGet("{id:int}/players/{playerId:int}/progress")]
     [ProducesResponseType(typeof(PlayerObjectiveProgressResponse), 200)]
     [ProducesResponseType(404)]
@@ -53,6 +57,7 @@ public class ObjectivesController : ControllerBase
         catch (ObjectiveNotFoundException ex) { return NotFound(ex.Message); }
     }
 
+    /// <summary>List all completions for a player on an objective (one entry per period for recurring objectives).</summary>
     [HttpGet("{id:int}/players/{playerId:int}/completions")]
     [ProducesResponseType(typeof(IEnumerable<PlayerObjectiveCompletionResponse>), 200)]
     [ProducesResponseType(404)]
@@ -62,6 +67,7 @@ public class ObjectivesController : ControllerBase
         catch (ObjectiveNotFoundException ex) { return NotFound(ex.Message); }
     }
 
+    /// <summary>Update a player's progress on an objective.</summary>
     [HttpPatch("{id:int}/players/{playerId:int}/progress")]
     [ProducesResponseType(typeof(PlayerObjectiveProgressResponse), 200)]
     [ProducesResponseType(400)]
