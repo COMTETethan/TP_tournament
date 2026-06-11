@@ -79,6 +79,8 @@ builder.Services.AddSingleton<ISeasonRewardService, SeasonRewardService>();
 builder.Services.AddSingleton<IClassService, ClassService>();
 builder.Services.AddSingleton<ICombatService, CombatService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IFriendService, FriendService>();
+builder.Services.AddScoped<IChallengeService, ChallengeService>();
 
 var app = builder.Build();
 

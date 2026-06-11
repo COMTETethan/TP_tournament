@@ -16,6 +16,25 @@ public class AuthService : IAuthService
     private static readonly List<UserEntity> UserStore = new();
     private static int NextUserId = 1;
 
+    // ── Shared read helpers for the social features (friends / challenges) ───────
+    /// <summary>All registered users as (id, email) pairs.</summary>
+    public static IReadOnlyList<(int Id, string Email)> AllUsers()
+    {
+        lock (Lock) return UserStore.Select(u => (u.Id, u.Email)).ToList();
+    }
+
+    /// <summary>True if a user with this id exists.</summary>
+    public static bool UserExists(int id)
+    {
+        lock (Lock) return UserStore.Any(u => u.Id == id);
+    }
+
+    /// <summary>The email of the user with this id, or null.</summary>
+    public static string? EmailOf(int id)
+    {
+        lock (Lock) return UserStore.FirstOrDefault(u => u.Id == id)?.Email;
+    }
+
     private readonly string _secret;
     private readonly string _issuer;
     private readonly string _audience;
